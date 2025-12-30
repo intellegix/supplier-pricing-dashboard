@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Building2, TrendingUp, DollarSign, BarChart3 } from 'lucide-react';
 import { useDashboardStore } from '../stores/dashboardStore';
@@ -7,12 +7,14 @@ import { RiskBadge } from '../components/dashboard/RiskBadge';
 import { TrendIndicator } from '../components/dashboard/TrendIndicator';
 import { DataTable } from '../components/tables/DataTable';
 import { PriceChart } from '../components/charts/PriceChart';
+import { SupplierDetailModal } from '../components/charts/SupplierDetailModal';
 import { formatNumber, formatPercent } from '../utils/formatters';
 import type { SupplierData } from '../types';
 import { motion } from 'framer-motion';
 
 export function SuppliersPage() {
   const { suppliers } = useDashboardStore();
+  const [selectedSupplier, setSelectedSupplier] = useState<SupplierData | null>(null);
 
   const columns = useMemo<ColumnDef<SupplierData, unknown>[]>(
     () => [
@@ -110,20 +112,25 @@ export function SuppliersPage() {
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
+      {/* KPI Cards - Clickable */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {topPerformers.map((supplier, index) => (
-          <KPICard
+          <div
             key={supplier.id}
-            title={supplier.ticker}
-            subtitle={supplier.company}
-            value={`$${supplier.currentPrice.toFixed(2)}`}
-            change={supplier.quarterlyPerformance}
-            changeLabel="Quarterly"
-            icon={<Building2 className="w-4 h-4 text-accent-cyan" />}
-            sparklineData={supplier.historicalPrices.slice(-30).map((p) => ({ value: p.price }))}
-            delay={index * 0.1}
-          />
+            onClick={() => setSelectedSupplier(supplier)}
+            className="cursor-pointer transform transition-transform hover:scale-[1.02]"
+          >
+            <KPICard
+              title={supplier.ticker}
+              subtitle={supplier.company}
+              value={`$${supplier.currentPrice.toFixed(2)}`}
+              change={supplier.quarterlyPerformance}
+              changeLabel="Quarterly"
+              icon={<Building2 className="w-4 h-4 text-accent-cyan" />}
+              sparklineData={supplier.historicalPrices.slice(-30).map((p) => ({ value: p.price }))}
+              delay={index * 0.1}
+            />
+          </div>
         ))}
       </div>
 
@@ -191,7 +198,16 @@ export function SuppliersPage() {
         data={suppliers}
         columns={columns}
         searchPlaceholder="Search suppliers..."
+        onRowClick={(supplier) => setSelectedSupplier(supplier)}
       />
+
+      {/* Supplier Detail Modal */}
+      {selectedSupplier && (
+        <SupplierDetailModal
+          supplier={selectedSupplier}
+          onClose={() => setSelectedSupplier(null)}
+        />
+      )}
     </div>
   );
 }

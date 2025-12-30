@@ -1,0 +1,359 @@
+import { useState, useMemo } from 'react';
+import { X, TrendingUp, TrendingDown, Building2, DollarSign, BarChart3, Percent } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine
+} from 'recharts';
+import type { SupplierData } from '../../types';
+import { formatCurrency, formatNumber } from '../../utils/formatters';
+import { RiskBadge } from '../dashboard/RiskBadge';
+
+interface SupplierDetailModalProps {
+  supplier: SupplierData | null;
+  onClose: () => void;
+}
+
+type TimeRange = '30D' | '60D' | '3M' | '6M' | '1Y' | '5Y' | 'YTD';
+
+interface ChartDataPoint {
+  date: string;
+  price: number;
+  index: number;
+  displayDate: string;
+  fullDate: string;
+}
+
+const timeRanges: { key: TimeRange; label: string; days: number }[] = [
+  { key: '30D', label: '30 Days', days: 30 },
+  { key: '60D', label: '60 Days', days: 60 },
+  { key: '3M', label: '3 Months', days: 90 },
+  { key: '6M', label: '6 Months', days: 180 },
+  { key: '1Y', label: '1 Year', days: 365 },
+  { key: '5Y', label: '5 Years', days: 1825 },
+  { key: 'YTD', label: 'YTD', days: -1 },
+];
+
+export function SupplierDetailModal({ supplier, onClose }: SupplierDetailModalProps) {
+  const [selectedRange, setSelectedRange] = useState<TimeRange>('3M');
+
+  const chartData: ChartDataPoint[] = useMemo(() => {
+    if (!supplier?.historicalPrices) return [];
+
+    const range = timeRanges.find(r => r.key === selectedRange);
+    let daysToShow = range?.days || 90;
+
+    if (range?.key === 'YTD') {
+      const now = new Date();
+      const startOfYear = new Date(now.getFullYear(), 0, 1);
+      daysToShow = Math.ceil((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+    }
+
+    const dataLength = supplier.historicalPrices.length;
+    const startIndex = Math.max(0, dataLength - daysToShow);
+
+    return supplier.historicalPrices.slice(startIndex).map((d, i) => ({
+      ...d,
+      index: i,
+      displayDate: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      fullDate: new Date(d.date).toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
+    }));
+  }, [supplier, selectedRange]);
+
+  const stats = useMemo(() => {
+    if (!chartData.length) return null;
+
+    const prices = chartData.map(d => d.price);
+    const firstPrice = prices[0];
+    const lastPrice = prices[prices.length - 1];
+    const change = lastPrice - firstPrice;
+    const changePercent = (change / firstPrice) * 100;
+    const high = Math.max(...prices);
+    const low = Math.min(...prices);
+    const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+
+    return {
+      change,
+      changePercent,
+      high,
+      low,
+      avg,
+      isUp: change >= 0
+    };
+  }, [chartData]);
+
+  if (!supplier) return null;
+
+  const chartColor = stats?.isUp ? '#00ff88' : '#ff3366';
+  const healthLevel = supplier.financialHealth === 'EXCELLENT' ? 'LOW' :
+                      supplier.financialHealth === 'GOOD' ? 'MODERATE' : 'HIGH';
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0, y: 20 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          className="terminal-card w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="p-6 border-b border-terminal-border flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-accent-cyan/10 border border-accent-cyan/30 flex items-center justify-center">
+                <span className="text-lg font-bold text-accent-cyan">{supplier.ticker.slice(0, 2)}</span>
+              </div>
+              <div>
+                <h2 className="font-display text-xl font-bold text-text-primary">{supplier.ticker}</h2>
+                <p className="text-sm text-text-muted">{supplier.company}</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-lg bg-terminal-surface border border-terminal-border flex items-center justify-center hover:bg-terminal-border transition-colors"
+            >
+              <X className="w-5 h-5 text-text-secondary" />
+            </button>
+          </div>
+
+          {/* Price & Stats */}
+          <div className="p-6 border-b border-terminal-border">
+            <div className="flex items-end justify-between flex-wrap gap-4">
+              <div>
+                <div className="flex items-end gap-2">
+                  <span className="font-display text-4xl font-bold text-text-primary">
+                    {formatCurrency(supplier.currentPrice)}
+                  </span>
+                  {stats && (
+                    <div className={`flex items-center gap-1 pb-1 ${stats.isUp ? 'text-risk-low' : 'text-risk-high'}`}>
+                      {stats.isUp ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
+                      <span className="font-mono text-lg">
+                        {stats.isUp ? '+' : ''}{formatNumber(stats.changePercent)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-sm text-text-muted mt-1">
+                  {selectedRange === 'YTD' ? 'Year to Date' : timeRanges.find(r => r.key === selectedRange)?.label} Change
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <RiskBadge level={healthLevel} size="lg" />
+                <div className="flex items-center gap-2 px-3 py-2 bg-terminal-surface rounded-lg">
+                  <span className="text-sm font-mono text-accent-cyan">{supplier.investmentGrade}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Time Range Selector */}
+          <div className="px-6 py-4 border-b border-terminal-border">
+            <div className="flex items-center gap-2 flex-wrap">
+              {timeRanges.map((range) => (
+                <button
+                  key={range.key}
+                  onClick={() => setSelectedRange(range.key)}
+                  className={`px-4 py-2 rounded-lg font-mono text-sm transition-all ${
+                    selectedRange === range.key
+                      ? 'bg-accent-cyan text-terminal-bg font-bold'
+                      : 'bg-terminal-surface text-text-secondary hover:bg-terminal-border hover:text-text-primary'
+                  }`}
+                >
+                  {range.key}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Chart */}
+          <div className="p-6">
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={chartData}
+                  margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
+                >
+                  <defs>
+                    <linearGradient id="colorSupplierPrice" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={chartColor} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={chartColor} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#2a3142"
+                    strokeOpacity={0.5}
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="index"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#5a6478', fontSize: 11, fontFamily: 'JetBrains Mono' }}
+                    tickFormatter={(index: number) => {
+                      const point = chartData[index];
+                      const totalPoints = chartData.length;
+                      const showLabel = index === 0 || index === totalPoints - 1 ||
+                        index === Math.floor(totalPoints / 2);
+                      return showLabel && point ? point.displayDate : '';
+                    }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#5a6478', fontSize: 11, fontFamily: 'JetBrains Mono' }}
+                    width={70}
+                    tickFormatter={(value) => `$${value.toLocaleString()}`}
+                    domain={['auto', 'auto']}
+                  />
+                  {stats && (
+                    <ReferenceLine
+                      y={stats.avg}
+                      stroke="#5a6478"
+                      strokeDasharray="3 3"
+                      strokeOpacity={0.5}
+                    />
+                  )}
+                  <Tooltip
+                    cursor={{ stroke: '#00d4ff', strokeWidth: 1, strokeDasharray: '3 3' }}
+                    contentStyle={{
+                      backgroundColor: '#181c25',
+                      border: '1px solid #2a3142',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+                      padding: '12px 16px'
+                    }}
+                    labelStyle={{ color: '#00d4ff', fontFamily: 'JetBrains Mono', fontSize: 12, marginBottom: 4 }}
+                    itemStyle={{ color: '#e4e8f0', fontFamily: 'JetBrains Mono', fontSize: 14 }}
+                    formatter={(value: number | undefined) => [formatCurrency(value ?? 0), 'Price']}
+                    labelFormatter={(_label, payload) => {
+                      if (payload && payload.length > 0 && payload[0]?.payload) {
+                        return payload[0].payload.fullDate;
+                      }
+                      return '';
+                    }}
+                    isAnimationActive={false}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="price"
+                    stroke={chartColor}
+                    strokeWidth={2}
+                    fill="url(#colorSupplierPrice)"
+                    animationDuration={500}
+                    activeDot={{ r: 6, stroke: chartColor, strokeWidth: 2, fill: '#181c25' }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Price Stats Grid */}
+          {stats && (
+            <div className="px-6 pb-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-terminal-surface rounded-lg">
+                  <p className="text-xs font-mono text-text-muted uppercase mb-1">Period High</p>
+                  <p className="text-lg font-display font-bold text-risk-low">{formatCurrency(stats.high)}</p>
+                </div>
+                <div className="p-4 bg-terminal-surface rounded-lg">
+                  <p className="text-xs font-mono text-text-muted uppercase mb-1">Period Low</p>
+                  <p className="text-lg font-display font-bold text-risk-high">{formatCurrency(stats.low)}</p>
+                </div>
+                <div className="p-4 bg-terminal-surface rounded-lg">
+                  <p className="text-xs font-mono text-text-muted uppercase mb-1">Average</p>
+                  <p className="text-lg font-display font-bold text-text-primary">{formatCurrency(stats.avg)}</p>
+                </div>
+                <div className="p-4 bg-terminal-surface rounded-lg">
+                  <p className="text-xs font-mono text-text-muted uppercase mb-1">Change</p>
+                  <p className={`text-lg font-display font-bold ${stats.isUp ? 'text-risk-low' : 'text-risk-high'}`}>
+                    {stats.isUp ? '+' : ''}{formatCurrency(stats.change)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Financial Metrics */}
+          <div className="px-6 pb-4">
+            <h4 className="text-sm font-mono uppercase text-text-secondary mb-3">Financial Metrics</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 bg-terminal-surface rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="w-4 h-4 text-accent-cyan" />
+                  <p className="text-xs font-mono text-text-muted uppercase">Market Cap</p>
+                </div>
+                <p className="text-lg font-display font-bold text-text-primary">{supplier.marketCap}</p>
+              </div>
+              <div className="p-4 bg-terminal-surface rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Percent className="w-4 h-4 text-risk-low" />
+                  <p className="text-xs font-mono text-text-muted uppercase">Gross Margin</p>
+                </div>
+                <p className="text-lg font-display font-bold text-risk-low">
+                  {supplier.grossMargin ? `${formatNumber(supplier.grossMargin)}%` : 'N/A'}
+                </p>
+              </div>
+              <div className="p-4 bg-terminal-surface rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <BarChart3 className="w-4 h-4 text-accent-amber" />
+                  <p className="text-xs font-mono text-text-muted uppercase">P/E Ratio</p>
+                </div>
+                <p className="text-lg font-display font-bold text-accent-amber">
+                  {supplier.peRatio ? formatNumber(supplier.peRatio) : 'N/A'}
+                </p>
+              </div>
+              <div className="p-4 bg-terminal-surface rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 className="w-4 h-4 text-accent-purple" />
+                  <p className="text-xs font-mono text-text-muted uppercase">SoCal Score</p>
+                </div>
+                <p className="text-lg font-display font-bold text-accent-purple">{supplier.socalRelevanceScore}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Company Info */}
+          <div className="px-6 pb-6">
+            <div className="p-4 bg-accent-cyan/5 border border-accent-cyan/20 rounded-lg">
+              <h4 className="text-sm font-mono uppercase text-accent-cyan mb-2">Company Overview</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-text-muted">Sector: </span>
+                  <span className="text-text-primary">{supplier.focusArea}</span>
+                </div>
+                <div>
+                  <span className="text-text-muted">SoCal Presence: </span>
+                  <span className="text-text-primary">{supplier.socalPresence}</span>
+                </div>
+                <div className="md:col-span-2">
+                  <span className="text-text-muted">Key Products: </span>
+                  <span className="text-text-primary">{supplier.keyProducts}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
