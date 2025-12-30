@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import { ExternalLink, Clock, Newspaper, RefreshCw, Wifi } from 'lucide-react';
 import { useDashboardStore } from '../stores/dashboardStore';
 import { formatRelativeTime } from '../utils/formatters';
+import { NewsDetailModal } from '../components/charts/NewsDetailModal';
 import { motion } from 'framer-motion';
+import type { NewsArticle } from '../types';
 
 export function NewsPage() {
   const { news, commodities, suppliers, isLoadingNews, fetchNews } = useDashboardStore();
+  const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
 
   // Check if we have real news (Yahoo Finance URLs contain finance.yahoo.com)
   const hasRealNews = news.some((article) => article.url.includes('yahoo.com') || article.url.includes('finance.'));
@@ -66,15 +70,13 @@ export function NewsPage() {
       {/* News Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {allNews.map((article, index) => (
-          <motion.a
+          <motion.div
             key={`${article.title}-${index}`}
-            href={article.url}
-            target="_blank"
-            rel="noopener noreferrer"
+            onClick={() => setSelectedArticle(article)}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.05 }}
-            className="terminal-card p-4 group hover:border-accent-cyan/30 transition-all duration-300 block"
+            className="terminal-card p-4 group hover:border-accent-cyan/30 transition-all duration-300 cursor-pointer"
           >
             {/* Source Badge */}
             <div className="flex items-center justify-between mb-3">
@@ -102,7 +104,7 @@ export function NewsPage() {
                 background: 'radial-gradient(circle at center, rgba(0, 212, 255, 0.05) 0%, transparent 70%)'
               }}
             />
-          </motion.a>
+          </motion.div>
         ))}
       </div>
 
@@ -112,6 +114,15 @@ export function NewsPage() {
           <Newspaper className="w-12 h-12 text-text-muted mx-auto mb-4" />
           <p className="text-text-secondary">No news articles available</p>
         </div>
+      )}
+
+      {/* News Detail Modal */}
+      {selectedArticle && (
+        <NewsDetailModal
+          article={selectedArticle}
+          relatedArticles={allNews}
+          onClose={() => setSelectedArticle(null)}
+        />
       )}
     </div>
   );
