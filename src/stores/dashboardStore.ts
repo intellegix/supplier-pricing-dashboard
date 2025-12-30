@@ -4,6 +4,8 @@ import { mockCommodities, mockSuppliers, mockEconomicIndicators, mockWeather, mo
 import { fetchAllNews } from '../services/newsService';
 import { fetchWeatherData } from '../services/weatherService';
 import { fetchCommodityData } from '../services/commodityService';
+import { fetchSupplierData } from '../services/supplierService';
+import { fetchEconomicData } from '../services/economicService';
 
 interface DashboardStore {
   // State
@@ -17,6 +19,8 @@ interface DashboardStore {
   isLoadingNews: boolean;
   isLoadingWeather: boolean;
   isLoadingCommodities: boolean;
+  isLoadingSuppliers: boolean;
+  isLoadingEconomic: boolean;
   lastUpdated: string | null;
   error: string | null;
 
@@ -26,6 +30,8 @@ interface DashboardStore {
   fetchNews: () => Promise<void>;
   fetchWeather: () => Promise<void>;
   fetchCommodities: () => Promise<void>;
+  fetchSuppliers: () => Promise<void>;
+  fetchEconomic: () => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -41,6 +47,8 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   isLoadingNews: false,
   isLoadingWeather: false,
   isLoadingCommodities: false,
+  isLoadingSuppliers: false,
+  isLoadingEconomic: false,
   lastUpdated: null,
   error: null,
 
@@ -52,22 +60,24 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
     try {
       // Simulate API delay for mock data
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, 400));
 
-      // Load mock data for suppliers, economic (commodities, weather, news will be fetched real)
+      // Load mock data as fallback (will be replaced by real data)
       set({
-        commodities: mockCommodities, // Start with mock, will be replaced by real data
+        commodities: mockCommodities,
         suppliers: mockSuppliers,
         economicIndicators: mockEconomicIndicators,
-        weather: mockWeather, // Start with mock weather as fallback
-        news: mockNews, // Start with mock news as fallback
+        weather: mockWeather,
+        news: mockNews,
         isLoading: false,
         lastUpdated: new Date().toISOString(),
         error: null
       });
 
-      // Fetch real data in the background
+      // Fetch real data in the background for all data types
       get().fetchCommodities();
+      get().fetchSuppliers();
+      get().fetchEconomic();
       get().fetchNews();
       get().fetchWeather();
     } catch (error) {
@@ -151,11 +161,57 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     }
   },
 
+  fetchSuppliers: async () => {
+    set({ isLoadingSuppliers: true });
+
+    try {
+      const realSuppliers = await fetchSupplierData();
+
+      if (realSuppliers.length > 0 && realSuppliers.some(s => s.marketCap !== 'N/A')) {
+        set({
+          suppliers: realSuppliers,
+          isLoadingSuppliers: false,
+          lastUpdated: new Date().toISOString()
+        });
+        console.log(`Loaded real supplier data for ${realSuppliers.length} suppliers from Yahoo Finance`);
+      } else {
+        console.log('Using mock supplier data (Yahoo Finance unavailable)');
+        set({ isLoadingSuppliers: false });
+      }
+    } catch (error) {
+      console.error('Error fetching real suppliers:', error);
+      set({ isLoadingSuppliers: false });
+    }
+  },
+
+  fetchEconomic: async () => {
+    set({ isLoadingEconomic: true });
+
+    try {
+      const realEconomic = await fetchEconomicData();
+
+      if (realEconomic.length > 0) {
+        set({
+          economicIndicators: realEconomic,
+          isLoadingEconomic: false,
+          lastUpdated: new Date().toISOString()
+        });
+        console.log(`Loaded real economic data for ${realEconomic.length} indicators`);
+      } else {
+        console.log('Using mock economic data (APIs unavailable)');
+        set({ isLoadingEconomic: false });
+      }
+    } catch (error) {
+      console.error('Error fetching real economic data:', error);
+      set({ isLoadingEconomic: false });
+    }
+  },
+
   refreshData: async () => {
     set({ isLoading: true });
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       set({
         isLoading: false,
@@ -164,6 +220,8 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
       // Refresh all real data sources
       get().fetchCommodities();
+      get().fetchSuppliers();
+      get().fetchEconomic();
       get().fetchNews();
       get().fetchWeather();
     } catch (error) {
