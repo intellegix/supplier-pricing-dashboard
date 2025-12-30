@@ -139,6 +139,7 @@ export function CommoditiesPage() {
         data={commodities}
         columns={columns}
         searchPlaceholder="Search commodities..."
+        onRowClick={(commodity) => setSelectedCommodity(commodity)}
       />
 
       {/* Commodity Detail Modal */}

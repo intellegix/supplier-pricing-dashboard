@@ -16,13 +16,15 @@ interface DataTableProps<T> {
   columns: ColumnDef<T, unknown>[];
   searchPlaceholder?: string;
   searchColumn?: string;
+  onRowClick?: (row: T) => void;
 }
 
 export function DataTable<T>({
   data,
   columns,
   searchPlaceholder = 'Search...',
-  searchColumn: _searchColumn
+  searchColumn: _searchColumn,
+  onRowClick
 }: DataTableProps<T>) {
   void _searchColumn; // Reserved for column-specific search
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -104,6 +106,8 @@ export function DataTable<T>({
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.2, delay: index * 0.03 }}
+                onClick={() => onRowClick?.(row.original)}
+                className={onRowClick ? 'cursor-pointer hover:bg-terminal-surface/50 transition-colors' : ''}
               >
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id}>
