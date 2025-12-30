@@ -91,6 +91,13 @@ const SUPPLIERS: Record<string, {
   },
 };
 
+// Multiple CORS proxies for fallback
+const CORS_PROXIES = [
+  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
+
 // Format market cap
 function formatMarketCap(marketCap: number): string {
   if (marketCap >= 1e12) return `$${(marketCap / 1e12).toFixed(2)}T`;
@@ -189,6 +196,60 @@ function generateHistoricalPrices(
   return prices;
 }
 
+// Fetch with retry logic and multiple proxies
+async function fetchWithRetry(
+  url: string,
+  maxRetries: number = 3,
+  initialDelay: number = 500
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let proxyIndex = 0; proxyIndex < CORS_PROXIES.length; proxyIndex++) {
+    const proxyFn = CORS_PROXIES[proxyIndex];
+    const proxyUrl = proxyFn(url);
+
+    for (let retry = 0; retry < maxRetries; retry++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        const response = await fetch(proxyUrl, {
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          return response;
+        }
+
+        // If we get a rate limit response, try next proxy
+        if (response.status === 429) {
+          console.warn(`Rate limited on proxy ${proxyIndex + 1}, trying next...`);
+          break;
+        }
+
+        throw new Error(`HTTP ${response.status}`);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Exponential backoff
+        const delay = initialDelay * Math.pow(2, retry);
+        console.warn(`Retry ${retry + 1}/${maxRetries} for ${url} (proxy ${proxyIndex + 1}): ${lastError.message}`);
+
+        if (retry < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error('All fetch attempts failed');
+}
+
 // Fetch stock quote and key statistics from Yahoo Finance
 async function fetchYahooStockData(symbol: string): Promise<{
   price: number;
@@ -205,32 +266,40 @@ async function fetchYahooStockData(symbol: string): Promise<{
   debtEquity: number | null;
 } | null> {
   try {
-    // Fetch quote data
+    // Fetch quote data with retry logic
     const quoteUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=3mo`;
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(quoteUrl)}`;
-
-    const response = await fetch(proxyUrl);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const response = await fetchWithRetry(quoteUrl);
 
     const data = await response.json();
     const result = data.chart?.result?.[0];
 
-    if (!result) return null;
+    if (!result) {
+      console.error(`No chart data for ${symbol}`);
+      return null;
+    }
 
     const meta = result.meta;
     const prices = result.indicators?.quote?.[0]?.close || [];
     const currentPrice = meta.regularMarketPrice || prices[prices.length - 1];
 
+    if (!currentPrice || currentPrice <= 0) {
+      console.error(`Invalid price for ${symbol}`);
+      return null;
+    }
+
+    // Filter out null prices
+    const validPrices = prices.filter((p: number | null) => p !== null && p > 0);
+
     // Calculate performance over different periods
-    const weekAgoPrice = prices[prices.length - 6] || currentPrice;
-    const monthAgoPrice = prices[prices.length - 22] || currentPrice;
-    const quarterAgoPrice = prices[0] || currentPrice;
+    const weekAgoPrice = validPrices[validPrices.length - 6] || currentPrice;
+    const monthAgoPrice = validPrices[validPrices.length - 22] || validPrices[0] || currentPrice;
+    const quarterAgoPrice = validPrices[0] || currentPrice;
 
     const weeklyChange = ((currentPrice - weekAgoPrice) / weekAgoPrice) * 100;
     const monthlyChange = ((currentPrice - monthAgoPrice) / monthAgoPrice) * 100;
     const quarterlyChange = ((currentPrice - quarterAgoPrice) / quarterAgoPrice) * 100;
 
-    // Try to fetch additional financial data
+    // Initialize financial data
     let financialData = {
       marketCap: meta.marketCap || 0,
       peRatio: null as number | null,
@@ -242,32 +311,29 @@ async function fetchYahooStockData(symbol: string): Promise<{
       debtEquity: null as number | null,
     };
 
-    // Try to get key statistics
+    // Try to get key statistics (with shorter timeout, don't fail if this fails)
     try {
       const statsUrl = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=defaultKeyStatistics,financialData`;
-      const statsProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(statsUrl)}`;
+      const statsResponse = await fetchWithRetry(statsUrl, 2, 300);
 
-      const statsResponse = await fetch(statsProxyUrl);
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        const keyStats = statsData.quoteSummary?.result?.[0]?.defaultKeyStatistics;
-        const finData = statsData.quoteSummary?.result?.[0]?.financialData;
+      const statsData = await statsResponse.json();
+      const keyStats = statsData.quoteSummary?.result?.[0]?.defaultKeyStatistics;
+      const finData = statsData.quoteSummary?.result?.[0]?.financialData;
 
-        if (keyStats) {
-          financialData.peRatio = keyStats.forwardPE?.raw || keyStats.trailingPE?.raw || null;
-        }
+      if (keyStats) {
+        financialData.peRatio = keyStats.forwardPE?.raw || keyStats.trailingPE?.raw || null;
+      }
 
-        if (finData) {
-          financialData.grossMargin = finData.grossMargins?.raw ? finData.grossMargins.raw * 100 : null;
-          financialData.operatingMargin = finData.operatingMargins?.raw ? finData.operatingMargins.raw * 100 : null;
-          financialData.profitMargin = finData.profitMargins?.raw ? finData.profitMargins.raw * 100 : null;
-          financialData.revenueGrowth = finData.revenueGrowth?.raw ? finData.revenueGrowth.raw * 100 : null;
-          financialData.roe = finData.returnOnEquity?.raw ? finData.returnOnEquity.raw * 100 : null;
-          financialData.debtEquity = finData.debtToEquity?.raw ? finData.debtToEquity.raw / 100 : null;
-        }
+      if (finData) {
+        financialData.grossMargin = finData.grossMargins?.raw ? finData.grossMargins.raw * 100 : null;
+        financialData.operatingMargin = finData.operatingMargins?.raw ? finData.operatingMargins.raw * 100 : null;
+        financialData.profitMargin = finData.profitMargins?.raw ? finData.profitMargins.raw * 100 : null;
+        financialData.revenueGrowth = finData.revenueGrowth?.raw ? finData.revenueGrowth.raw * 100 : null;
+        financialData.roe = finData.returnOnEquity?.raw ? finData.returnOnEquity.raw * 100 : null;
+        financialData.debtEquity = finData.debtToEquity?.raw ? finData.debtToEquity.raw / 100 : null;
       }
     } catch (statsError) {
-      console.warn(`Could not fetch financial stats for ${symbol}:`, statsError);
+      console.warn(`Could not fetch financial stats for ${symbol}, using basic data`);
     }
 
     return {
@@ -290,92 +356,141 @@ async function fetchYahooStockData(symbol: string): Promise<{
   }
 }
 
-export async function fetchSupplierData(): Promise<SupplierData[]> {
-  const suppliers: SupplierData[] = [];
+// Fetch a single supplier's data
+async function fetchSingleSupplier(
+  ticker: string,
+  meta: typeof SUPPLIERS[string]
+): Promise<SupplierData> {
+  try {
+    const stockData = await fetchYahooStockData(ticker);
 
-  for (const [ticker, meta] of Object.entries(SUPPLIERS)) {
-    try {
-      const stockData = await fetchYahooStockData(ticker);
+    if (stockData && stockData.price > 0) {
+      const financialHealth = calculateFinancialHealth(
+        stockData.profitMargin,
+        stockData.debtEquity,
+        stockData.roe
+      );
 
-      if (stockData && stockData.price > 0) {
-        const financialHealth = calculateFinancialHealth(
-          stockData.profitMargin,
-          stockData.debtEquity,
-          stockData.roe
-        );
+      const investmentGrade = calculateInvestmentGrade(
+        stockData.peRatio,
+        stockData.profitMargin,
+        stockData.quarterlyChange
+      );
 
-        const investmentGrade = calculateInvestmentGrade(
-          stockData.peRatio,
-          stockData.profitMargin,
-          stockData.quarterlyChange
-        );
+      console.log(`✓ ${ticker} (${meta.company}): $${stockData.price.toFixed(2)} (${stockData.quarterlyChange > 0 ? '+' : ''}${stockData.quarterlyChange.toFixed(2)}% QTD)`);
 
-        suppliers.push({
-          id: ticker.toLowerCase(),
-          ticker,
-          company: meta.company,
-          focusArea: meta.focusArea,
-          socalPresence: meta.socalPresence,
-          keyProducts: meta.keyProducts,
-          marketCap: formatMarketCap(stockData.marketCap),
-          grossMargin: stockData.grossMargin,
-          operatingMargin: stockData.operatingMargin,
-          profitMargin: stockData.profitMargin,
-          revenueGrowth: stockData.revenueGrowth,
-          roe: stockData.roe,
-          peRatio: stockData.peRatio,
-          debtEquity: stockData.debtEquity,
-          weeklyPerformance: stockData.weeklyChange,
-          monthlyPerformance: stockData.monthlyChange,
-          quarterlyPerformance: stockData.quarterlyChange,
-          pricingPowerAssessment: meta.pricingPowerAssessment,
-          financialHealth,
-          socalRelevanceScore: meta.socalRelevanceScore,
-          investmentGrade,
-          news: [],
-          lastUpdated: new Date().toISOString(),
-          historicalPrices: generateHistoricalPrices(stockData.price, stockData.quarterlyChange),
-        });
-
-        console.log(`Fetched ${ticker} (${meta.company}): $${stockData.price.toFixed(2)} (${stockData.quarterlyChange > 0 ? '+' : ''}${stockData.quarterlyChange.toFixed(2)}% QTD)`);
-      } else {
-        throw new Error('No stock data');
-      }
-    } catch (error) {
-      console.error(`Failed to fetch ${ticker}, using fallback:`, error);
-
-      // Fallback with placeholder data
-      suppliers.push({
+      return {
         id: ticker.toLowerCase(),
         ticker,
         company: meta.company,
         focusArea: meta.focusArea,
         socalPresence: meta.socalPresence,
         keyProducts: meta.keyProducts,
-        marketCap: 'N/A',
-        grossMargin: null,
-        operatingMargin: null,
-        profitMargin: null,
-        revenueGrowth: null,
-        roe: null,
-        peRatio: null,
-        debtEquity: null,
-        weeklyPerformance: 0,
-        monthlyPerformance: 0,
-        quarterlyPerformance: 0,
+        marketCap: formatMarketCap(stockData.marketCap),
+        grossMargin: stockData.grossMargin,
+        operatingMargin: stockData.operatingMargin,
+        profitMargin: stockData.profitMargin,
+        revenueGrowth: stockData.revenueGrowth,
+        roe: stockData.roe,
+        peRatio: stockData.peRatio,
+        debtEquity: stockData.debtEquity,
+        weeklyPerformance: stockData.weeklyChange,
+        monthlyPerformance: stockData.monthlyChange,
+        quarterlyPerformance: stockData.quarterlyChange,
         pricingPowerAssessment: meta.pricingPowerAssessment,
-        financialHealth: 'Unknown',
+        financialHealth,
         socalRelevanceScore: meta.socalRelevanceScore,
-        investmentGrade: 'N/A',
+        investmentGrade,
         news: [],
         lastUpdated: new Date().toISOString(),
-        historicalPrices: [],
-      });
+        historicalPrices: generateHistoricalPrices(stockData.price, stockData.quarterlyChange),
+      };
     }
 
-    // Small delay to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 300));
+    throw new Error('No valid stock data');
+  } catch (error) {
+    console.error(`✗ ${ticker}: Failed -`, error instanceof Error ? error.message : 'Unknown error');
+
+    // Return placeholder data for failed fetch
+    return {
+      id: ticker.toLowerCase(),
+      ticker,
+      company: meta.company,
+      focusArea: meta.focusArea,
+      socalPresence: meta.socalPresence,
+      keyProducts: meta.keyProducts,
+      marketCap: 'N/A',
+      grossMargin: null,
+      operatingMargin: null,
+      profitMargin: null,
+      revenueGrowth: null,
+      roe: null,
+      peRatio: null,
+      debtEquity: null,
+      weeklyPerformance: 0,
+      monthlyPerformance: 0,
+      quarterlyPerformance: 0,
+      pricingPowerAssessment: meta.pricingPowerAssessment,
+      financialHealth: 'Unknown',
+      socalRelevanceScore: meta.socalRelevanceScore,
+      investmentGrade: 'N/A',
+      news: [],
+      lastUpdated: new Date().toISOString(),
+      historicalPrices: [],
+    };
+  }
+}
+
+// Process suppliers in batches to avoid overwhelming the proxies
+async function processBatch(
+  batch: [string, typeof SUPPLIERS[string]][],
+  delayBetween: number = 800
+): Promise<SupplierData[]> {
+  const results: SupplierData[] = [];
+
+  for (const [ticker, meta] of batch) {
+    const result = await fetchSingleSupplier(ticker, meta);
+    results.push(result);
+
+    // Add delay between requests in the same batch
+    if (batch.indexOf([ticker, meta] as [string, typeof SUPPLIERS[string]]) < batch.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, delayBetween));
+    }
   }
 
-  return suppliers;
+  return results;
+}
+
+export async function fetchSupplierData(): Promise<SupplierData[]> {
+  console.log('Fetching supplier data from Yahoo Finance...');
+
+  const entries = Object.entries(SUPPLIERS);
+
+  // Split into batches of 3 to process more safely
+  const batchSize = 3;
+  const batches: [string, typeof SUPPLIERS[string]][][] = [];
+
+  for (let i = 0; i < entries.length; i += batchSize) {
+    batches.push(entries.slice(i, i + batchSize) as [string, typeof SUPPLIERS[string]][]);
+  }
+
+  const allResults: SupplierData[] = [];
+
+  // Process batches sequentially with delay between batches
+  for (let i = 0; i < batches.length; i++) {
+    console.log(`Processing batch ${i + 1}/${batches.length}...`);
+
+    const batchResults = await processBatch(batches[i], 600);
+    allResults.push(...batchResults);
+
+    // Add longer delay between batches
+    if (i < batches.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+
+  const successCount = allResults.filter(s => s.marketCap !== 'N/A').length;
+  console.log(`Supplier fetch complete: ${successCount}/${allResults.length} successful`);
+
+  return allResults;
 }

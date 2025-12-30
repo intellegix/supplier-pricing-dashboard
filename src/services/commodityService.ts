@@ -69,6 +69,13 @@ const COMMODITY_META: Record<string, {
   },
 };
 
+// Multiple CORS proxies for fallback
+const CORS_PROXIES = [
+  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
+
 // Calculate risk level based on volatility and price change
 function calculateRiskLevel(dailyChangePercent: number, volatility: number): RiskLevel {
   const absChange = Math.abs(dailyChangePercent);
@@ -108,7 +115,60 @@ function generateHistoricalPrices(currentPrice: number, volatility: number): { d
   return prices;
 }
 
-// Fetch quote data from Yahoo Finance via CORS proxy
+// Fetch with retry logic and multiple proxies
+async function fetchWithRetry(
+  url: string,
+  maxRetries: number = 3,
+  initialDelay: number = 500
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let proxyIndex = 0; proxyIndex < CORS_PROXIES.length; proxyIndex++) {
+    const proxyFn = CORS_PROXIES[proxyIndex];
+    const proxyUrl = proxyFn(url);
+
+    for (let retry = 0; retry < maxRetries; retry++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        const response = await fetch(proxyUrl, {
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          return response;
+        }
+
+        // If we get a rate limit response, try next proxy
+        if (response.status === 429) {
+          console.warn(`Rate limited on proxy ${proxyIndex + 1}, trying next...`);
+          break;
+        }
+
+        throw new Error(`HTTP ${response.status}`);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Exponential backoff
+        const delay = initialDelay * Math.pow(2, retry);
+
+        if (retry < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error('All fetch attempts failed');
+}
+
+// Fetch quote data from Yahoo Finance via CORS proxy with retry
 async function fetchYahooQuote(symbol: string): Promise<{
   price: number;
   change: number;
@@ -116,12 +176,8 @@ async function fetchYahooQuote(symbol: string): Promise<{
   volume: number | null;
 } | null> {
   try {
-    // Use allorigins.win as CORS proxy
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=5d`;
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`;
-
-    const response = await fetch(proxyUrl);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const response = await fetchWithRetry(yahooUrl);
 
     const data = await response.json();
     const result = data.chart?.result?.[0];
@@ -133,8 +189,11 @@ async function fetchYahooQuote(symbol: string): Promise<{
 
     const currentPrice = meta.regularMarketPrice || meta.previousClose;
     const previousClose = meta.chartPreviousClose || meta.previousClose;
+
+    if (!currentPrice || currentPrice <= 0) return null;
+
     const change = currentPrice - previousClose;
-    const changePercent = (change / previousClose) * 100;
+    const changePercent = previousClose ? (change / previousClose) * 100 : 0;
     const volume = quote?.volume?.[quote.volume.length - 1] || null;
 
     return {
@@ -149,36 +208,20 @@ async function fetchYahooQuote(symbol: string): Promise<{
   }
 }
 
-// Calculate volatility from price history (reserved for future use with real historical data)
-function _calculateVolatility(prices: number[]): number {
-  if (prices.length < 2) return 15; // Default volatility
-
-  const returns: number[] = [];
-  for (let i = 1; i < prices.length; i++) {
-    returns.push(Math.log(prices[i] / prices[i - 1]));
-  }
-
-  const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
-  const variance = returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
-  const dailyVolatility = Math.sqrt(variance);
-
-  // Annualize volatility
-  return dailyVolatility * Math.sqrt(252) * 100;
-}
-
-// Export for future use
-void _calculateVolatility;
-
 export async function fetchCommodityData(): Promise<CommodityData[]> {
-  const commodities: CommodityData[] = [];
+  console.log('Fetching commodity data from Yahoo Finance...');
 
-  for (const [name, symbol] of Object.entries(COMMODITY_SYMBOLS)) {
+  const commodities: CommodityData[] = [];
+  const entries = Object.entries(COMMODITY_SYMBOLS);
+
+  for (let i = 0; i < entries.length; i++) {
+    const [name, symbol] = entries[i];
     const meta = COMMODITY_META[name];
 
     try {
       const quote = await fetchYahooQuote(symbol);
 
-      if (quote) {
+      if (quote && quote.price > 0) {
         // Estimate volatility based on daily change (simplified)
         const volatility = Math.max(10, Math.min(50, Math.abs(quote.changePercent) * 5 + 15));
 
@@ -202,12 +245,12 @@ export async function fetchCommodityData(): Promise<CommodityData[]> {
           historicalPrices: generateHistoricalPrices(quote.price, volatility),
         });
 
-        console.log(`Fetched ${name}: $${quote.price.toFixed(2)} (${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%)`);
+        console.log(`✓ ${name}: $${quote.price.toFixed(2)} (${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%)`);
       } else {
         throw new Error('No quote data');
       }
     } catch (error) {
-      console.error(`Failed to fetch ${name}, using fallback:`, error);
+      console.error(`✗ ${name}: Failed -`, error instanceof Error ? error.message : 'Unknown error');
 
       // Fallback with placeholder data
       commodities.push({
@@ -231,9 +274,14 @@ export async function fetchCommodityData(): Promise<CommodityData[]> {
       });
     }
 
-    // Small delay to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Delay between requests to avoid rate limiting
+    if (i < entries.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
   }
+
+  const successCount = commodities.filter(c => c.currentPrice > 0).length;
+  console.log(`Commodity fetch complete: ${successCount}/${commodities.length} successful`);
 
   return commodities;
 }

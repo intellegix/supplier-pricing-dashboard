@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { TabId, CommodityData, SupplierData, EconomicIndicator, WeatherData, NewsArticle } from '../types';
-import { mockCommodities, mockSuppliers, mockEconomicIndicators, mockWeather, mockNews } from '../utils/mockData';
 import { fetchAllNews } from '../services/newsService';
 import { fetchWeatherData } from '../services/weatherService';
 import { fetchCommodityData } from '../services/commodityService';
@@ -59,28 +58,29 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      // Simulate API delay for mock data
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      // Fetch all real data in parallel
+      const [commodities, suppliers, economic, news, weather] = await Promise.all([
+        fetchCommodityData(),
+        fetchSupplierData(),
+        fetchEconomicData(),
+        fetchAllNews(),
+        fetchWeatherData(),
+      ]);
 
-      // Load mock data as fallback (will be replaced by real data)
       set({
-        commodities: mockCommodities,
-        suppliers: mockSuppliers,
-        economicIndicators: mockEconomicIndicators,
-        weather: mockWeather,
-        news: mockNews,
+        commodities,
+        suppliers,
+        economicIndicators: economic,
+        news,
+        weather,
         isLoading: false,
         lastUpdated: new Date().toISOString(),
         error: null
       });
 
-      // Fetch real data in the background for all data types
-      get().fetchCommodities();
-      get().fetchSuppliers();
-      get().fetchEconomic();
-      get().fetchNews();
-      get().fetchWeather();
+      console.log('All real data loaded successfully');
     } catch (error) {
+      console.error('Error fetching data:', error);
       set({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to fetch data'
@@ -92,23 +92,15 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     set({ isLoadingNews: true });
 
     try {
-      const realNews = await fetchAllNews();
-
-      if (realNews.length > 0) {
-        set({
-          news: realNews,
-          isLoadingNews: false
-        });
-        console.log(`Loaded ${realNews.length} real news articles from Yahoo Finance`);
-      } else {
-        // Keep mock news if no real news fetched
-        console.log('Using mock news data (Yahoo Finance unavailable)');
-        set({ isLoadingNews: false });
-      }
+      const news = await fetchAllNews();
+      set({
+        news,
+        isLoadingNews: false
+      });
+      console.log(`Loaded ${news.length} news articles from Yahoo Finance`);
     } catch (error) {
-      console.error('Error fetching real news:', error);
+      console.error('Error fetching news:', error);
       set({ isLoadingNews: false });
-      // Keep mock news on error
     }
   },
 
@@ -116,23 +108,15 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     set({ isLoadingWeather: true });
 
     try {
-      const realWeather = await fetchWeatherData();
-
-      if (realWeather.length > 0) {
-        set({
-          weather: realWeather,
-          isLoadingWeather: false
-        });
-        console.log(`Loaded real weather data for ${realWeather.length} locations from Open-Meteo`);
-      } else {
-        // Keep mock weather if fetch failed
-        console.log('Using mock weather data (Open-Meteo unavailable)');
-        set({ isLoadingWeather: false });
-      }
+      const weather = await fetchWeatherData();
+      set({
+        weather,
+        isLoadingWeather: false
+      });
+      console.log(`Loaded weather data for ${weather.length} locations from Open-Meteo`);
     } catch (error) {
-      console.error('Error fetching real weather:', error);
+      console.error('Error fetching weather:', error);
       set({ isLoadingWeather: false });
-      // Keep mock weather on error
     }
   },
 
@@ -140,24 +124,16 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     set({ isLoadingCommodities: true });
 
     try {
-      const realCommodities = await fetchCommodityData();
-
-      if (realCommodities.length > 0 && realCommodities.some(c => c.currentPrice > 0)) {
-        set({
-          commodities: realCommodities,
-          isLoadingCommodities: false,
-          lastUpdated: new Date().toISOString()
-        });
-        console.log(`Loaded real commodity data for ${realCommodities.length} commodities from Yahoo Finance`);
-      } else {
-        // Keep mock commodities if fetch failed
-        console.log('Using mock commodity data (Yahoo Finance unavailable)');
-        set({ isLoadingCommodities: false });
-      }
+      const commodities = await fetchCommodityData();
+      set({
+        commodities,
+        isLoadingCommodities: false,
+        lastUpdated: new Date().toISOString()
+      });
+      console.log(`Loaded commodity data for ${commodities.length} commodities from Yahoo Finance`);
     } catch (error) {
-      console.error('Error fetching real commodities:', error);
+      console.error('Error fetching commodities:', error);
       set({ isLoadingCommodities: false });
-      // Keep mock commodities on error
     }
   },
 
@@ -165,21 +141,15 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     set({ isLoadingSuppliers: true });
 
     try {
-      const realSuppliers = await fetchSupplierData();
-
-      if (realSuppliers.length > 0 && realSuppliers.some(s => s.marketCap !== 'N/A')) {
-        set({
-          suppliers: realSuppliers,
-          isLoadingSuppliers: false,
-          lastUpdated: new Date().toISOString()
-        });
-        console.log(`Loaded real supplier data for ${realSuppliers.length} suppliers from Yahoo Finance`);
-      } else {
-        console.log('Using mock supplier data (Yahoo Finance unavailable)');
-        set({ isLoadingSuppliers: false });
-      }
+      const suppliers = await fetchSupplierData();
+      set({
+        suppliers,
+        isLoadingSuppliers: false,
+        lastUpdated: new Date().toISOString()
+      });
+      console.log(`Loaded supplier data for ${suppliers.length} suppliers from Yahoo Finance`);
     } catch (error) {
-      console.error('Error fetching real suppliers:', error);
+      console.error('Error fetching suppliers:', error);
       set({ isLoadingSuppliers: false });
     }
   },
@@ -188,21 +158,15 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     set({ isLoadingEconomic: true });
 
     try {
-      const realEconomic = await fetchEconomicData();
-
-      if (realEconomic.length > 0) {
-        set({
-          economicIndicators: realEconomic,
-          isLoadingEconomic: false,
-          lastUpdated: new Date().toISOString()
-        });
-        console.log(`Loaded real economic data for ${realEconomic.length} indicators`);
-      } else {
-        console.log('Using mock economic data (APIs unavailable)');
-        set({ isLoadingEconomic: false });
-      }
+      const economicIndicators = await fetchEconomicData();
+      set({
+        economicIndicators,
+        isLoadingEconomic: false,
+        lastUpdated: new Date().toISOString()
+      });
+      console.log(`Loaded economic data for ${economicIndicators.length} indicators`);
     } catch (error) {
-      console.error('Error fetching real economic data:', error);
+      console.error('Error fetching economic data:', error);
       set({ isLoadingEconomic: false });
     }
   },
@@ -211,20 +175,28 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     set({ isLoading: true });
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      // Refresh all data sources in parallel
+      const [commodities, suppliers, economic, news, weather] = await Promise.all([
+        fetchCommodityData(),
+        fetchSupplierData(),
+        fetchEconomicData(),
+        fetchAllNews(),
+        fetchWeatherData(),
+      ]);
 
       set({
+        commodities,
+        suppliers,
+        economicIndicators: economic,
+        news,
+        weather,
         isLoading: false,
         lastUpdated: new Date().toISOString()
       });
 
-      // Refresh all real data sources
-      get().fetchCommodities();
-      get().fetchSuppliers();
-      get().fetchEconomic();
-      get().fetchNews();
-      get().fetchWeather();
+      console.log('Data refreshed successfully');
     } catch (error) {
+      console.error('Error refreshing data:', error);
       set({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to refresh data'

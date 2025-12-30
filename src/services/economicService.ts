@@ -70,10 +70,67 @@ const ECONOMIC_SYMBOLS: Record<string, {
   },
 };
 
-// CORS proxy for browser requests
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+// Multiple CORS proxies for fallback
+const CORS_PROXIES = [
+  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+];
 
-// Fetch quote data from Yahoo Finance
+// Fetch with retry logic and multiple proxies
+async function fetchWithRetry(
+  url: string,
+  maxRetries: number = 3,
+  initialDelay: number = 500
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let proxyIndex = 0; proxyIndex < CORS_PROXIES.length; proxyIndex++) {
+    const proxyFn = CORS_PROXIES[proxyIndex];
+    const proxyUrl = proxyFn(url);
+
+    for (let retry = 0; retry < maxRetries; retry++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        const response = await fetch(proxyUrl, {
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          return response;
+        }
+
+        // If we get a rate limit response, try next proxy
+        if (response.status === 429) {
+          console.warn(`Rate limited on proxy ${proxyIndex + 1}, trying next...`);
+          break;
+        }
+
+        throw new Error(`HTTP ${response.status}`);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Exponential backoff
+        const delay = initialDelay * Math.pow(2, retry);
+
+        if (retry < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error('All fetch attempts failed');
+}
+
+// Fetch quote data from Yahoo Finance with retry
 async function fetchYahooQuote(symbol: string): Promise<{
   current: number;
   previous: number;
@@ -83,10 +140,7 @@ async function fetchYahooQuote(symbol: string): Promise<{
 } | null> {
   try {
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1mo`;
-    const proxyUrl = `${CORS_PROXY}${encodeURIComponent(yahooUrl)}`;
-
-    const response = await fetch(proxyUrl);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const response = await fetchWithRetry(yahooUrl);
 
     const data = await response.json();
     const result = data.chart?.result?.[0];
@@ -100,13 +154,16 @@ async function fetchYahooQuote(symbol: string): Promise<{
 
     const currentPrice = meta.regularMarketPrice || closes[closes.length - 1];
     const previousClose = meta.chartPreviousClose || meta.previousClose || closes[closes.length - 2];
+
+    if (!currentPrice || currentPrice <= 0) return null;
+
     const change = currentPrice - previousClose;
     const changePercent = previousClose ? (change / previousClose) * 100 : 0;
 
     // Build historical data
     const historicalData: { date: string; value: number }[] = [];
     for (let i = 0; i < timestamps.length; i++) {
-      if (closes[i] !== null && closes[i] !== undefined) {
+      if (closes[i] !== null && closes[i] !== undefined && closes[i] > 0) {
         const date = new Date(timestamps[i] * 1000);
         historicalData.push({
           date: date.toISOString().split('T')[0],
@@ -129,13 +186,18 @@ async function fetchYahooQuote(symbol: string): Promise<{
 }
 
 export async function fetchEconomicData(): Promise<EconomicIndicator[]> {
-  const indicators: EconomicIndicator[] = [];
+  console.log('Fetching economic data from Yahoo Finance...');
 
-  for (const [id, config] of Object.entries(ECONOMIC_SYMBOLS)) {
+  const indicators: EconomicIndicator[] = [];
+  const entries = Object.entries(ECONOMIC_SYMBOLS);
+
+  for (let i = 0; i < entries.length; i++) {
+    const [id, config] = entries[i];
+
     try {
       const quote = await fetchYahooQuote(config.symbol);
 
-      if (quote) {
+      if (quote && quote.current > 0) {
         let value = quote.current;
         let previousValue = quote.previous;
 
@@ -159,12 +221,12 @@ export async function fetchEconomicData(): Promise<EconomicIndicator[]> {
           historicalData: quote.historicalData,
         });
 
-        console.log(`Fetched ${config.name}: ${value.toFixed(2)}${config.unit} (${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%)`);
+        console.log(`✓ ${config.name}: ${value.toFixed(2)}${config.unit} (${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%)`);
       } else {
         throw new Error('No quote data');
       }
     } catch (error) {
-      console.error(`Failed to fetch ${config.name}:`, error);
+      console.error(`✗ ${config.name}: Failed -`, error instanceof Error ? error.message : 'Unknown error');
 
       // Add placeholder data for failed fetch
       indicators.push({
@@ -182,9 +244,14 @@ export async function fetchEconomicData(): Promise<EconomicIndicator[]> {
       });
     }
 
-    // Small delay to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Delay between requests to avoid rate limiting
+    if (i < entries.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
   }
+
+  const successCount = indicators.filter(ind => ind.value > 0).length;
+  console.log(`Economic fetch complete: ${successCount}/${indicators.length} successful`);
 
   return indicators;
 }
