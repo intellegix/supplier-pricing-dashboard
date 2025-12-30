@@ -156,48 +156,45 @@ export function WeatherPage() {
                 </div>
               </div>
 
-              {/* Stats */}
-              <div className="p-4 grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-terminal-surface flex items-center justify-center">
-                    <Wind className="w-4 h-4 text-accent-cyan" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-mono text-text-muted uppercase">Wind</p>
-                    <p className="text-sm font-mono text-text-primary">{location.windSpeed} mph</p>
-                  </div>
+              {/* Quick Stats Row */}
+              <div className="px-4 pt-3 pb-2 flex items-center justify-between text-xs border-b border-terminal-border/50">
+                <div className="flex items-center gap-1">
+                  <Wind className="w-3 h-3 text-accent-cyan" />
+                  <span className="font-mono text-text-primary">{location.windSpeed} mph</span>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-terminal-surface flex items-center justify-center">
-                    <Droplets className="w-4 h-4 text-accent-cyan" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-mono text-text-muted uppercase">Humidity</p>
-                    <p className="text-sm font-mono text-text-primary">{location.humidity || 'N/A'}%</p>
-                  </div>
+                <div className="flex items-center gap-1">
+                  <Droplets className="w-3 h-3 text-accent-cyan" />
+                  <span className="font-mono text-text-primary">{location.humidity}%</span>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-terminal-surface flex items-center justify-center">
-                    <CloudRain className="w-4 h-4 text-accent-cyan" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-mono text-text-muted uppercase">Precip</p>
-                    <p className="text-sm font-mono text-text-primary">{location.precipitationProbability || 0}%</p>
-                  </div>
+                <div className="flex items-center gap-1">
+                  <CloudRain className="w-3 h-3 text-accent-cyan" />
+                  <span className="font-mono text-text-primary">{location.precipitationProbability || 0}%</span>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-terminal-surface flex items-center justify-center">
-                    <Thermometer className="w-4 h-4 text-accent-cyan" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-mono text-text-muted uppercase">Feels</p>
-                    <p className="text-sm font-mono text-text-primary">{location.temperature}°F</p>
-                  </div>
+                <div className="flex items-center gap-1">
+                  <Thermometer className="w-3 h-3 text-accent-cyan" />
+                  <span className="font-mono text-text-primary">{location.temperature}°F</span>
                 </div>
               </div>
+
+              {/* 3-Day Forecast Preview */}
+              {hasForecast && (
+                <div className="px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    {location.forecast.slice(0, 4).map((day, dayIndex) => (
+                      <div key={day.date} className="flex flex-col items-center gap-1">
+                        <span className="text-[10px] font-mono text-text-muted uppercase">
+                          {dayIndex === 0 ? 'Now' : day.dayName}
+                        </span>
+                        {getWeatherIcon(day.condition, 'sm')}
+                        <div className="flex items-center gap-0.5">
+                          <span className="text-xs font-mono text-text-primary">{day.high}°</span>
+                          <span className="text-[10px] text-text-muted">{day.low}°</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* 7-Day Forecast (Expandable) */}
               <AnimatePresence>
