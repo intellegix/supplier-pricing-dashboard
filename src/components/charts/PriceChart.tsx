@@ -29,7 +29,7 @@ interface ChartDataPoint {
 export function PriceChart({
   data,
   title,
-  color: _color = '#00d4ff',
+  color: _color = '#3b82f6',
   height = 250
 }: PriceChartProps) {
   void _color; // Used for future customization
@@ -38,7 +38,7 @@ export function PriceChart({
   const firstPrice = data[0]?.price || 0;
   const lastPrice = data[data.length - 1]?.price || 0;
   const isUp = lastPrice >= firstPrice;
-  const chartColor = isUp ? '#00ff88' : '#ff3366';
+  const chartColor = isUp ? '#10b981' : '#ef4444';
 
   // Format data for display with precise date tracking
   // Every point has a fullDate for tooltip, displayDate controls X-axis labels
@@ -137,16 +137,16 @@ export function PriceChart({
               strokeOpacity={0.5}
             />
             <Tooltip
-              cursor={{ stroke: '#00d4ff', strokeWidth: 1, strokeDasharray: '3 3' }}
+              cursor={{ stroke: '#3b82f6', strokeWidth: 1, strokeDasharray: '3 3' }}
               contentStyle={{
-                backgroundColor: '#181c25',
-                border: '1px solid #2a3142',
+                backgroundColor: '#141820',
+                border: '1px solid #252d3d',
                 borderRadius: '8px',
-                boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
                 padding: '8px 12px'
               }}
-              labelStyle={{ color: '#00d4ff', fontFamily: 'JetBrains Mono', fontSize: 11, marginBottom: 4 }}
-              itemStyle={{ color: '#e4e8f0', fontFamily: 'JetBrains Mono', fontSize: 12 }}
+              labelStyle={{ color: '#3b82f6', fontFamily: 'JetBrains Mono', fontSize: 11, marginBottom: 4 }}
+              itemStyle={{ color: '#f1f5f9', fontFamily: 'JetBrains Mono', fontSize: 12 }}
               formatter={(value: number | undefined) => [`$${(value ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Price']}
               labelFormatter={formatTooltipLabel}
               isAnimationActive={false}
@@ -160,7 +160,7 @@ export function PriceChart({
               strokeWidth={2}
               fill={`url(#gradient-${title.replace(/\s+/g, '-')})`}
               animationDuration={1000}
-              activeDot={{ r: 6, stroke: chartColor, strokeWidth: 2, fill: '#181c25' }}
+              activeDot={{ r: 6, stroke: chartColor, strokeWidth: 2, fill: '#141820' }}
             />
           </AreaChart>
         </ResponsiveContainer>

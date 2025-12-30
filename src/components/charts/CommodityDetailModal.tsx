@@ -97,7 +97,7 @@ export function CommodityDetailModal({ commodity, onClose }: CommodityDetailModa
 
   if (!commodity) return null;
 
-  const chartColor = stats?.isUp ? '#00ff88' : '#ff3366';
+  const chartColor = stats?.isUp ? '#10b981' : '#ef4444';
 
   return (
     <AnimatePresence>
@@ -119,8 +119,8 @@ export function CommodityDetailModal({ commodity, onClose }: CommodityDetailModa
           {/* Header */}
           <div className="p-6 border-b border-terminal-border flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-accent-cyan/10 border border-accent-cyan/30 flex items-center justify-center">
-                <span className="text-lg font-bold text-accent-cyan">{commodity.symbol}</span>
+              <div className="w-12 h-12 rounded-xl bg-primary-500/10 border border-primary-500/20 flex items-center justify-center">
+                <span className="text-lg font-bold text-primary-400">{commodity.symbol}</span>
               </div>
               <div>
                 <h2 className="font-display text-xl font-bold text-text-primary">{commodity.name}</h2>
@@ -175,9 +175,9 @@ export function CommodityDetailModal({ commodity, onClose }: CommodityDetailModa
                 <button
                   key={range.key}
                   onClick={() => setSelectedRange(range.key)}
-                  className={`px-4 py-2 rounded-lg font-mono text-sm transition-all ${
+                  className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
                     selectedRange === range.key
-                      ? 'bg-accent-cyan text-terminal-bg font-bold'
+                      ? 'bg-primary-500 text-white'
                       : 'bg-terminal-surface text-text-secondary hover:bg-terminal-border hover:text-text-primary'
                   }`}
                 >
@@ -238,16 +238,16 @@ export function CommodityDetailModal({ commodity, onClose }: CommodityDetailModa
                     />
                   )}
                   <Tooltip
-                    cursor={{ stroke: '#00d4ff', strokeWidth: 1, strokeDasharray: '3 3' }}
+                    cursor={{ stroke: '#3b82f6', strokeWidth: 1, strokeDasharray: '3 3' }}
                     contentStyle={{
-                      backgroundColor: '#181c25',
-                      border: '1px solid #2a3142',
+                      backgroundColor: '#141820',
+                      border: '1px solid #252d3d',
                       borderRadius: '8px',
-                      boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
                       padding: '12px 16px'
                     }}
-                    labelStyle={{ color: '#00d4ff', fontFamily: 'JetBrains Mono', fontSize: 12, marginBottom: 4 }}
-                    itemStyle={{ color: '#e4e8f0', fontFamily: 'JetBrains Mono', fontSize: 14 }}
+                    labelStyle={{ color: '#3b82f6', fontFamily: 'JetBrains Mono', fontSize: 12, marginBottom: 4 }}
+                    itemStyle={{ color: '#f1f5f9', fontFamily: 'JetBrains Mono', fontSize: 14 }}
                     formatter={(value: number | undefined) => [formatCurrency(value ?? 0), 'Price']}
                     labelFormatter={(_label, payload) => {
                       if (payload && payload.length > 0 && payload[0]?.payload) {
@@ -264,7 +264,7 @@ export function CommodityDetailModal({ commodity, onClose }: CommodityDetailModa
                     strokeWidth={2}
                     fill="url(#colorPrice)"
                     animationDuration={500}
-                    activeDot={{ r: 6, stroke: chartColor, strokeWidth: 2, fill: '#181c25' }}
+                    activeDot={{ r: 6, stroke: chartColor, strokeWidth: 2, fill: '#141820' }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -299,8 +299,8 @@ export function CommodityDetailModal({ commodity, onClose }: CommodityDetailModa
 
           {/* SoCal Impact */}
           <div className="px-6 pb-6">
-            <div className="p-4 bg-accent-cyan/5 border border-accent-cyan/20 rounded-lg">
-              <h4 className="text-sm font-mono uppercase text-accent-cyan mb-2">SoCal Construction Impact</h4>
+            <div className="p-4 bg-primary-500/5 border border-primary-500/15 rounded-lg">
+              <h4 className="text-sm font-medium uppercase tracking-wide text-primary-400 mb-2">SoCal Construction Impact</h4>
               <p className="text-sm text-text-secondary">{commodity.socalImpact}</p>
             </div>
           </div>

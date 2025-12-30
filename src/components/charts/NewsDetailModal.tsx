@@ -49,8 +49,8 @@ export function NewsDetailModal({ article, relatedArticles = [], onClose }: News
           {/* Header */}
           <div className="p-6 border-b border-terminal-border flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-accent-cyan/10 border border-accent-cyan/30 flex items-center justify-center">
-                <Newspaper className="w-6 h-6 text-accent-cyan" />
+              <div className="w-12 h-12 rounded-xl bg-primary-500/10 border border-primary-500/20 flex items-center justify-center">
+                <Newspaper className="w-6 h-6 text-primary-400" />
               </div>
               <div>
                 <h2 className="font-display text-lg font-bold text-text-primary">News Article</h2>
@@ -69,7 +69,7 @@ export function NewsDetailModal({ article, relatedArticles = [], onClose }: News
           <div className="p-6">
             {/* Source & Time */}
             <div className="flex items-center gap-4 mb-4">
-              <span className="px-3 py-1 bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/30 rounded-lg text-sm font-mono uppercase">
+              <span className="px-3 py-1 bg-primary-500/10 text-primary-400 border border-primary-500/20 rounded-lg text-sm font-medium uppercase">
                 {article.source}
               </span>
               <div className="flex items-center gap-2 text-sm text-text-muted font-mono">
@@ -87,7 +87,7 @@ export function NewsDetailModal({ article, relatedArticles = [], onClose }: News
             <div className="flex items-center gap-3 mb-6">
               <button
                 onClick={handleOpenArticle}
-                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-accent-cyan text-terminal-bg font-bold rounded-lg hover:bg-accent-cyan/90 transition-colors"
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary-500 text-white font-semibold rounded-lg hover:bg-primary-600 transition-colors"
               >
                 <ExternalLink className="w-5 h-5" />
                 Read Full Article
@@ -104,11 +104,11 @@ export function NewsDetailModal({ article, relatedArticles = [], onClose }: News
             {/* Source Info */}
             <div className="p-4 bg-terminal-surface rounded-lg mb-6">
               <div className="flex items-center gap-3 mb-2">
-                <Building2 className="w-5 h-5 text-accent-cyan" />
-                <span className="font-mono text-sm text-text-primary">Source Information</span>
+                <Building2 className="w-5 h-5 text-primary-400" />
+                <span className="font-medium text-sm text-text-primary">Source Information</span>
               </div>
               <p className="text-sm text-text-secondary">
-                This article is provided by <span className="text-accent-cyan">{article.source}</span>.
+                This article is provided by <span className="text-primary-400">{article.source}</span>.
                 Click "Read Full Article" to view the complete story on their website.
               </p>
             </div>

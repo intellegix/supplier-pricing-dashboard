@@ -27,29 +27,30 @@ export function KPICard({
   subtitle,
   delay = 0
 }: KPICardProps) {
-  const sparklineColor = change >= 0 ? '#00ff88' : '#ff3366';
+  // Professional color palette
+  const sparklineColor = change >= 0 ? '#10b981' : '#ef4444';
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay }}
-      className="kpi-card group hover:border-accent-cyan/30 transition-all duration-300"
+      transition={{ duration: 0.3, delay }}
+      className="kpi-card group"
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {icon && (
-            <div className="w-8 h-8 rounded-lg bg-accent-cyan/10 border border-accent-cyan/20 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-primary-500/10 border border-primary-500/20 flex items-center justify-center">
               {icon}
             </div>
           )}
           <div>
-            <h3 className="text-xs font-mono uppercase tracking-wider text-text-muted">
+            <h3 className="text-xs font-medium uppercase tracking-wide text-text-muted">
               {title}
             </h3>
             {subtitle && (
-              <p className="text-[10px] text-text-muted/60 mt-0.5">{subtitle}</p>
+              <p className="text-[10px] text-text-muted/70 mt-0.5 truncate max-w-[140px]">{subtitle}</p>
             )}
           </div>
         </div>
@@ -60,9 +61,9 @@ export function KPICard({
       <div className="flex items-end justify-between">
         <div>
           <div className="kpi-value">{value}</div>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1.5">
             <TrendIndicator value={change} size="sm" />
-            <span className="text-[10px] text-text-muted font-mono uppercase">
+            <span className="text-[10px] text-text-muted font-medium uppercase tracking-wide">
               {changeLabel}
             </span>
           </div>
@@ -70,7 +71,7 @@ export function KPICard({
 
         {/* Sparkline */}
         {sparklineData && sparklineData.length > 0 && (
-          <div className="w-20 h-10 opacity-60 group-hover:opacity-100 transition-opacity">
+          <div className="w-20 h-10 opacity-50 group-hover:opacity-80 transition-opacity">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={sparklineData}>
                 <Line
@@ -85,14 +86,6 @@ export function KPICard({
           </div>
         )}
       </div>
-
-      {/* Glow effect on hover */}
-      <div
-        className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-        style={{
-          background: 'radial-gradient(circle at center, rgba(0, 212, 255, 0.05) 0%, transparent 70%)'
-        }}
-      />
     </motion.div>
   );
 }
