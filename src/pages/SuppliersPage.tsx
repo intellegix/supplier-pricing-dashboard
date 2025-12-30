@@ -117,7 +117,7 @@ export function SuppliersPage() {
             key={supplier.id}
             title={supplier.ticker}
             subtitle={supplier.company}
-            value={supplier.marketCap}
+            value={`$${supplier.currentPrice.toFixed(2)}`}
             change={supplier.quarterlyPerformance}
             changeLabel="Quarterly"
             icon={<Building2 className="w-4 h-4 text-accent-cyan" />}
