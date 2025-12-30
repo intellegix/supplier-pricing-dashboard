@@ -34,7 +34,7 @@ interface DashboardStore {
   refreshData: () => Promise<void>;
 }
 
-export const useDashboardStore = create<DashboardStore>((set, get) => ({
+export const useDashboardStore = create<DashboardStore>((set) => ({
   // Initial state
   activeTab: 'commodities',
   commodities: [],

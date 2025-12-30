@@ -54,7 +54,7 @@ export function PriceChart({
   }));
 
   // Custom tooltip formatter with precise date
-  const formatTooltipLabel = useCallback((_label: string, payload: Array<{ payload?: ChartDataPoint }>) => {
+  const formatTooltipLabel = useCallback((_label: unknown, payload: ReadonlyArray<{ payload?: ChartDataPoint }>) => {
     if (payload && payload.length > 0 && payload[0]?.payload) {
       const dataPoint = payload[0].payload;
       return dataPoint.fullDate;
@@ -134,7 +134,7 @@ export function PriceChart({
               }}
               labelStyle={{ color: '#00d4ff', fontFamily: 'JetBrains Mono', fontSize: 11, marginBottom: 4 }}
               itemStyle={{ color: '#e4e8f0', fontFamily: 'JetBrains Mono', fontSize: 12 }}
-              formatter={(value: number) => [`$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Price']}
+              formatter={(value: number | undefined) => [`$${(value ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Price']}
               labelFormatter={formatTooltipLabel}
               isAnimationActive={false}
             />
