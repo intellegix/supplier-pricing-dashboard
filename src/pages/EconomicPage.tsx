@@ -97,9 +97,9 @@ export function EconomicPage() {
   // Get key indicators for KPI cards
   const keyIndicators = economicIndicators.slice(0, 4);
 
-  // Prepare chart data
-  const housingData = economicIndicators.find(i => i.id === 'housing-starts')?.historicalData || [];
-  const inflationData = economicIndicators.find(i => i.id === 'cpi')?.historicalData || [];
+  // Prepare chart data - use XHB (Homebuilders ETF) and VIX (Volatility) which we have from Yahoo Finance
+  const housingData = economicIndicators.find(i => i.id === 'xhb')?.historicalData || [];
+  const volatilityData = economicIndicators.find(i => i.id === 'vix')?.historicalData || [];
 
   return (
     <div className="space-y-6">
@@ -121,7 +121,7 @@ export function EconomicPage() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Housing Starts Chart */}
+        {/* Homebuilders ETF Chart */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -129,7 +129,7 @@ export function EconomicPage() {
           className="terminal-card p-4"
         >
           <h3 className="text-sm font-mono uppercase tracking-wider text-text-secondary mb-4">
-            Housing Starts (Millions)
+            Homebuilders Index (XHB)
           </h3>
           <div className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -163,7 +163,7 @@ export function EconomicPage() {
           </div>
         </motion.div>
 
-        {/* Inflation Chart */}
+        {/* Market Volatility Chart */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -171,11 +171,11 @@ export function EconomicPage() {
           className="terminal-card p-4"
         >
           <h3 className="text-sm font-mono uppercase tracking-wider text-text-secondary mb-4">
-            CPI Inflation Rate (%)
+            Market Volatility (VIX)
           </h3>
           <div className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={inflationData}>
+              <LineChart data={volatilityData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2a3142" strokeOpacity={0.5} />
                 <XAxis
                   dataKey="date"
