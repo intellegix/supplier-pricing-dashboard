@@ -177,7 +177,7 @@ export function WeatherPage() {
               </div>
 
               {/* 3-Day Forecast Preview */}
-              {hasForecast && (
+              {hasForecast && location.forecast && (
                 <div className="px-4 py-3">
                   <div className="flex items-center justify-between">
                     {location.forecast.slice(0, 4).map((day, dayIndex) => (
