@@ -122,52 +122,121 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     const hasData = state.commodities.length > 0 || state.suppliers.length > 0;
 
     if (hasData) {
-      set({ isRefreshing: true, error: null });
-    } else {
-      set({ isLoading: true, error: null });
-    }
-
-    try {
-      // Fetch all real data in parallel
-      const [commodities, suppliers, economic, news, weather] = await Promise.all([
-        fetchCommodityData(),
-        fetchSupplierData(),
-        fetchEconomicData(),
-        fetchAllNews(),
-        fetchWeatherData(),
-      ]);
-
-      const lastUpdated = new Date().toISOString();
-
-      // Save to cache
-      saveToCache(CACHE_KEYS.commodities, commodities);
-      saveToCache(CACHE_KEYS.suppliers, suppliers);
-      saveToCache(CACHE_KEYS.economic, economic);
-      saveToCache(CACHE_KEYS.news, news);
-      saveToCache(CACHE_KEYS.weather, weather);
-      saveToCache(CACHE_KEYS.lastUpdated, lastUpdated);
-
       set({
-        commodities,
-        suppliers,
-        economicIndicators: economic,
-        news,
-        weather,
-        isLoading: false,
-        isRefreshing: false,
-        lastUpdated,
+        isRefreshing: true,
+        isLoadingWeather: true,
+        isLoadingCommodities: true,
+        isLoadingEconomic: true,
+        isLoadingNews: true,
+        isLoadingSuppliers: true,
         error: null
       });
-
-      console.log('All real data loaded and cached successfully');
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } else {
       set({
-        isLoading: false,
-        isRefreshing: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch data'
+        isLoading: true,
+        isLoadingWeather: true,
+        isLoadingCommodities: true,
+        isLoadingEconomic: true,
+        isLoadingNews: true,
+        isLoadingSuppliers: true,
+        error: null
       });
     }
+
+    // PROGRESSIVE LOADING: Each service updates UI immediately when it completes
+    // This dramatically improves perceived performance - users see data in 1-4 seconds
+    // instead of waiting 30+ seconds for all services
+
+    // Track completion for final refresh state
+    let completedCount = 0;
+    const totalServices = 5;
+
+    const updateCompletion = () => {
+      completedCount++;
+      if (completedCount === totalServices) {
+        set({ isRefreshing: false });
+        console.log('All data loaded progressively');
+      }
+    };
+
+    // Weather - Fastest (~1 second) - No CORS proxy needed
+    fetchWeatherData()
+      .then((weather) => {
+        saveToCache(CACHE_KEYS.weather, weather);
+        set({
+          weather,
+          isLoadingWeather: false,
+          isLoading: false, // Remove loading overlay as soon as first data arrives
+        });
+        console.log(`Weather loaded: ${weather.length} locations`);
+      })
+      .catch((error) => console.error('Weather fetch error:', error))
+      .finally(updateCompletion);
+
+    // Commodities - Fast (~4 seconds)
+    fetchCommodityData()
+      .then((commodities) => {
+        const lastUpdated = new Date().toISOString();
+        saveToCache(CACHE_KEYS.commodities, commodities);
+        saveToCache(CACHE_KEYS.lastUpdated, lastUpdated);
+        set({
+          commodities,
+          isLoadingCommodities: false,
+          isLoading: false,
+          lastUpdated,
+        });
+        console.log(`Commodities loaded: ${commodities.length} items`);
+      })
+      .catch((error) => console.error('Commodities fetch error:', error))
+      .finally(updateCompletion);
+
+    // Economic Indicators - Medium (~4 seconds)
+    fetchEconomicData()
+      .then((economic) => {
+        const lastUpdated = new Date().toISOString();
+        saveToCache(CACHE_KEYS.economic, economic);
+        saveToCache(CACHE_KEYS.lastUpdated, lastUpdated);
+        set({
+          economicIndicators: economic,
+          isLoadingEconomic: false,
+          isLoading: false,
+          lastUpdated,
+        });
+        console.log(`Economic indicators loaded: ${economic.length} items`);
+      })
+      .catch((error) => console.error('Economic fetch error:', error))
+      .finally(updateCompletion);
+
+    // News - Medium (~5 seconds)
+    fetchAllNews()
+      .then((news) => {
+        saveToCache(CACHE_KEYS.news, news);
+        set({
+          news,
+          isLoadingNews: false,
+          isLoading: false,
+        });
+        console.log(`News loaded: ${news.length} articles`);
+      })
+      .catch((error) => console.error('News fetch error:', error))
+      .finally(updateCompletion);
+
+    // Suppliers - Slowest (~30 seconds due to rate limiting)
+    fetchSupplierData()
+      .then((suppliers) => {
+        const lastUpdated = new Date().toISOString();
+        saveToCache(CACHE_KEYS.suppliers, suppliers);
+        saveToCache(CACHE_KEYS.lastUpdated, lastUpdated);
+        set({
+          suppliers,
+          isLoadingSuppliers: false,
+          isLoading: false,
+          lastUpdated,
+        });
+        console.log(`Suppliers loaded: ${suppliers.length} items`);
+      })
+      .catch((error) => console.error('Suppliers fetch error:', error))
+      .finally(updateCompletion);
   },
 
   fetchNews: async () => {
@@ -265,47 +334,97 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   },
 
   refreshData: async () => {
-    set({ isRefreshing: true });
+    // Set all individual loading states
+    set({
+      isRefreshing: true,
+      isLoadingWeather: true,
+      isLoadingCommodities: true,
+      isLoadingEconomic: true,
+      isLoadingNews: true,
+      isLoadingSuppliers: true,
+    });
 
-    try {
-      // Refresh all data sources in parallel
-      const [commodities, suppliers, economic, news, weather] = await Promise.all([
-        fetchCommodityData(),
-        fetchSupplierData(),
-        fetchEconomicData(),
-        fetchAllNews(),
-        fetchWeatherData(),
-      ]);
+    // PROGRESSIVE REFRESH: Each service updates UI immediately when it completes
+    let completedCount = 0;
+    const totalServices = 5;
 
-      const lastUpdated = new Date().toISOString();
+    const updateCompletion = () => {
+      completedCount++;
+      if (completedCount === totalServices) {
+        set({ isRefreshing: false });
+        console.log('All data refreshed progressively');
+      }
+    };
 
-      // Save to cache
-      saveToCache(CACHE_KEYS.commodities, commodities);
-      saveToCache(CACHE_KEYS.suppliers, suppliers);
-      saveToCache(CACHE_KEYS.economic, economic);
-      saveToCache(CACHE_KEYS.news, news);
-      saveToCache(CACHE_KEYS.weather, weather);
-      saveToCache(CACHE_KEYS.lastUpdated, lastUpdated);
+    // Weather - Fastest
+    fetchWeatherData()
+      .then((weather) => {
+        saveToCache(CACHE_KEYS.weather, weather);
+        set({ weather, isLoadingWeather: false });
+        console.log(`Weather refreshed: ${weather.length} locations`);
+      })
+      .catch((error) => {
+        console.error('Weather refresh error:', error);
+        set({ isLoadingWeather: false });
+      })
+      .finally(updateCompletion);
 
-      set({
-        commodities,
-        suppliers,
-        economicIndicators: economic,
-        news,
-        weather,
-        isLoading: false,
-        isRefreshing: false,
-        lastUpdated
-      });
+    // Commodities
+    fetchCommodityData()
+      .then((commodities) => {
+        const lastUpdated = new Date().toISOString();
+        saveToCache(CACHE_KEYS.commodities, commodities);
+        saveToCache(CACHE_KEYS.lastUpdated, lastUpdated);
+        set({ commodities, isLoadingCommodities: false, lastUpdated });
+        console.log(`Commodities refreshed: ${commodities.length} items`);
+      })
+      .catch((error) => {
+        console.error('Commodities refresh error:', error);
+        set({ isLoadingCommodities: false });
+      })
+      .finally(updateCompletion);
 
-      console.log('Data refreshed and cached successfully');
-    } catch (error) {
-      console.error('Error refreshing data:', error);
-      set({
-        isLoading: false,
-        isRefreshing: false,
-        error: error instanceof Error ? error.message : 'Failed to refresh data'
-      });
-    }
+    // Economic Indicators
+    fetchEconomicData()
+      .then((economic) => {
+        const lastUpdated = new Date().toISOString();
+        saveToCache(CACHE_KEYS.economic, economic);
+        saveToCache(CACHE_KEYS.lastUpdated, lastUpdated);
+        set({ economicIndicators: economic, isLoadingEconomic: false, lastUpdated });
+        console.log(`Economic indicators refreshed: ${economic.length} items`);
+      })
+      .catch((error) => {
+        console.error('Economic refresh error:', error);
+        set({ isLoadingEconomic: false });
+      })
+      .finally(updateCompletion);
+
+    // News
+    fetchAllNews()
+      .then((news) => {
+        saveToCache(CACHE_KEYS.news, news);
+        set({ news, isLoadingNews: false });
+        console.log(`News refreshed: ${news.length} articles`);
+      })
+      .catch((error) => {
+        console.error('News refresh error:', error);
+        set({ isLoadingNews: false });
+      })
+      .finally(updateCompletion);
+
+    // Suppliers - Slowest
+    fetchSupplierData()
+      .then((suppliers) => {
+        const lastUpdated = new Date().toISOString();
+        saveToCache(CACHE_KEYS.suppliers, suppliers);
+        saveToCache(CACHE_KEYS.lastUpdated, lastUpdated);
+        set({ suppliers, isLoadingSuppliers: false, lastUpdated });
+        console.log(`Suppliers refreshed: ${suppliers.length} items`);
+      })
+      .catch((error) => {
+        console.error('Suppliers refresh error:', error);
+        set({ isLoadingSuppliers: false });
+      })
+      .finally(updateCompletion);
   }
 }));
