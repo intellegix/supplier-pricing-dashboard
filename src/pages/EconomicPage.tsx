@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { TrendingUp, TrendingDown, Activity, Building, Home, DollarSign } from 'lucide-react';
 import { useDashboardStore } from '../stores/dashboardStore';
 import { KPICard } from '../components/dashboard/KPICard';
 import { TrendIndicator } from '../components/dashboard/TrendIndicator';
 import { DataTable } from '../components/tables/DataTable';
+import { EconomicDetailModal } from '../components/charts/EconomicDetailModal';
 import { formatNumber } from '../utils/formatters';
 import type { EconomicIndicator } from '../types';
 import { motion } from 'framer-motion';
@@ -31,6 +32,7 @@ const indicatorIcons: Record<string, React.ReactNode> = {
 
 export function EconomicPage() {
   const { economicIndicators } = useDashboardStore();
+  const [selectedIndicator, setSelectedIndicator] = useState<EconomicIndicator | null>(null);
 
   const columns = useMemo<ColumnDef<EconomicIndicator, unknown>[]>(
     () => [
@@ -103,19 +105,24 @@ export function EconomicPage() {
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
+      {/* KPI Cards - Clickable */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {keyIndicators.map((indicator, index) => (
-          <KPICard
+          <div
             key={indicator.id}
-            title={indicator.name}
-            value={`${formatNumber(indicator.value)}${indicator.unit}`}
-            change={indicator.changePercent}
-            changeLabel="vs Previous"
-            icon={indicatorIcons[indicator.id]}
-            sparklineData={indicator.historicalData.map((d) => ({ value: d.value }))}
-            delay={index * 0.1}
-          />
+            onClick={() => setSelectedIndicator(indicator)}
+            className="cursor-pointer transform transition-transform hover:scale-[1.02]"
+          >
+            <KPICard
+              title={indicator.name}
+              value={`${formatNumber(indicator.value)}${indicator.unit}`}
+              change={indicator.changePercent}
+              changeLabel="vs Previous"
+              icon={indicatorIcons[indicator.id]}
+              sparklineData={indicator.historicalData.map((d) => ({ value: d.value }))}
+              delay={index * 0.1}
+            />
+          </div>
         ))}
       </div>
 
@@ -217,7 +224,16 @@ export function EconomicPage() {
         data={economicIndicators}
         columns={columns}
         searchPlaceholder="Search indicators..."
+        onRowClick={(indicator) => setSelectedIndicator(indicator)}
       />
+
+      {/* Economic Indicator Detail Modal */}
+      {selectedIndicator && (
+        <EconomicDetailModal
+          indicator={selectedIndicator}
+          onClose={() => setSelectedIndicator(null)}
+        />
+      )}
     </div>
   );
 }
