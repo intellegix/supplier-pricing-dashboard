@@ -3,6 +3,7 @@ import type { TabId, CommodityData, SupplierData, EconomicIndicator, WeatherData
 import { mockCommodities, mockSuppliers, mockEconomicIndicators, mockWeather, mockNews } from '../utils/mockData';
 import { fetchAllNews } from '../services/newsService';
 import { fetchWeatherData } from '../services/weatherService';
+import { fetchCommodityData } from '../services/commodityService';
 
 interface DashboardStore {
   // State
@@ -15,6 +16,7 @@ interface DashboardStore {
   isLoading: boolean;
   isLoadingNews: boolean;
   isLoadingWeather: boolean;
+  isLoadingCommodities: boolean;
   lastUpdated: string | null;
   error: string | null;
 
@@ -23,6 +25,7 @@ interface DashboardStore {
   fetchData: () => Promise<void>;
   fetchNews: () => Promise<void>;
   fetchWeather: () => Promise<void>;
+  fetchCommodities: () => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -37,6 +40,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   isLoading: true,
   isLoadingNews: false,
   isLoadingWeather: false,
+  isLoadingCommodities: false,
   lastUpdated: null,
   error: null,
 
@@ -50,9 +54,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       // Simulate API delay for mock data
       await new Promise((resolve) => setTimeout(resolve, 800));
 
-      // Load mock data for commodities, suppliers, etc.
+      // Load mock data for suppliers, economic (commodities, weather, news will be fetched real)
       set({
-        commodities: mockCommodities,
+        commodities: mockCommodities, // Start with mock, will be replaced by real data
         suppliers: mockSuppliers,
         economicIndicators: mockEconomicIndicators,
         weather: mockWeather, // Start with mock weather as fallback
@@ -62,7 +66,8 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         error: null
       });
 
-      // Fetch real news and weather in the background
+      // Fetch real data in the background
+      get().fetchCommodities();
       get().fetchNews();
       get().fetchWeather();
     } catch (error) {
@@ -121,27 +126,44 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     }
   },
 
+  fetchCommodities: async () => {
+    set({ isLoadingCommodities: true });
+
+    try {
+      const realCommodities = await fetchCommodityData();
+
+      if (realCommodities.length > 0 && realCommodities.some(c => c.currentPrice > 0)) {
+        set({
+          commodities: realCommodities,
+          isLoadingCommodities: false,
+          lastUpdated: new Date().toISOString()
+        });
+        console.log(`Loaded real commodity data for ${realCommodities.length} commodities from Yahoo Finance`);
+      } else {
+        // Keep mock commodities if fetch failed
+        console.log('Using mock commodity data (Yahoo Finance unavailable)');
+        set({ isLoadingCommodities: false });
+      }
+    } catch (error) {
+      console.error('Error fetching real commodities:', error);
+      set({ isLoadingCommodities: false });
+      // Keep mock commodities on error
+    }
+  },
+
   refreshData: async () => {
     set({ isLoading: true });
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Slightly randomize some values to simulate live data
-      const updatedCommodities = mockCommodities.map((c) => ({
-        ...c,
-        currentPrice: c.currentPrice * (1 + (Math.random() - 0.5) * 0.01),
-        dailyChange: c.dailyChange + (Math.random() - 0.5) * 0.5,
-        lastUpdated: new Date().toISOString()
-      }));
-
       set({
-        commodities: updatedCommodities,
         isLoading: false,
         lastUpdated: new Date().toISOString()
       });
 
-      // Also refresh news and weather
+      // Refresh all real data sources
+      get().fetchCommodities();
       get().fetchNews();
       get().fetchWeather();
     } catch (error) {
