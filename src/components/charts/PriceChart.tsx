@@ -41,17 +41,23 @@ export function PriceChart({
   const chartColor = isUp ? '#00ff88' : '#ff3366';
 
   // Format data for display with precise date tracking
-  const formattedData: ChartDataPoint[] = data.map((d, i) => ({
-    ...d,
-    index: i,
-    fullDate: new Date(d.date).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    }),
-    displayDate: i % 15 === 0 ? new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
-  }));
+  // Show labels at start, ~30 days, ~60 days, and end for better date visibility
+  const totalPoints = data.length;
+  const formattedData: ChartDataPoint[] = data.map((d, i) => {
+    const showLabel = i === 0 || i === totalPoints - 1 ||
+      (totalPoints > 60 && (i === Math.floor(totalPoints / 3) || i === Math.floor(2 * totalPoints / 3)));
+    return {
+      ...d,
+      index: i,
+      fullDate: new Date(d.date).toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }),
+      displayDate: showLabel ? new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+    };
+  });
 
   // Custom tooltip formatter with precise date
   const formatTooltipLabel = useCallback((_label: unknown, payload: ReadonlyArray<{ payload?: ChartDataPoint }>) => {
