@@ -34,6 +34,7 @@ export interface SupplierData {
   focusArea: string;
   socalPresence: string;
   keyProducts: string;
+  currentPrice: number;
   marketCap: string;
   grossMargin: number | null;
   operatingMargin: number | null;
