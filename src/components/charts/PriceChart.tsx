@@ -41,21 +41,24 @@ export function PriceChart({
   const chartColor = isUp ? '#00ff88' : '#ff3366';
 
   // Format data for display with precise date tracking
-  // Show labels at start, ~30 days, ~60 days, and end for better date visibility
+  // Every point has a fullDate for tooltip, displayDate controls X-axis labels
   const totalPoints = data.length;
   const formattedData: ChartDataPoint[] = data.map((d, i) => {
+    // Show X-axis labels at start, 1/3, 2/3, and end of the range
     const showLabel = i === 0 || i === totalPoints - 1 ||
-      (totalPoints > 60 && (i === Math.floor(totalPoints / 3) || i === Math.floor(2 * totalPoints / 3)));
+      (totalPoints > 30 && (i === Math.floor(totalPoints / 3) || i === Math.floor(2 * totalPoints / 3)));
+
+    const dateObj = new Date(d.date);
     return {
       ...d,
       index: i,
-      fullDate: new Date(d.date).toLocaleDateString('en-US', {
+      fullDate: dateObj.toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
         year: 'numeric'
       }),
-      displayDate: showLabel ? new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+      displayDate: showLabel ? dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
     };
   });
 
@@ -109,11 +112,15 @@ export function PriceChart({
               vertical={false}
             />
             <XAxis
-              dataKey="displayDate"
+              dataKey="index"
               axisLine={false}
               tickLine={false}
               tick={{ fill: '#5a6478', fontSize: 10, fontFamily: 'JetBrains Mono' }}
-              interval="preserveStartEnd"
+              ticks={[0, Math.floor(totalPoints / 3), Math.floor(2 * totalPoints / 3), totalPoints - 1]}
+              tickFormatter={(index: number) => {
+                const point = formattedData[index];
+                return point ? new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+              }}
             />
             <YAxis
               axisLine={false}
@@ -143,6 +150,8 @@ export function PriceChart({
               formatter={(value: number | undefined) => [`$${(value ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Price']}
               labelFormatter={formatTooltipLabel}
               isAnimationActive={false}
+              allowEscapeViewBox={{ x: true, y: true }}
+              wrapperStyle={{ zIndex: 1000 }}
             />
             <Area
               type="monotone"
