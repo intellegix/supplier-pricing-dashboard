@@ -36,8 +36,8 @@ export function Navigation() {
                   isActive ? 'active' : ''
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span>{item.label}</span>
+                <Icon className="w-6 h-6 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">{item.label}</span>
                 {isActive && (
                   <motion.div
                     layoutId="nav-indicator"
