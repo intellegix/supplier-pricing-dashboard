@@ -22,8 +22,8 @@ export function Navigation() {
 
   return (
     <nav className="bg-terminal-surface/50 border-b border-terminal-border">
-      <div className="max-w-[1920px] mx-auto px-6">
-        <div className="flex items-center gap-1">
+      <div className="max-w-[1920px] mx-auto px-3 sm:px-6">
+        <div className="flex items-center gap-1 mobile-nav-scroll">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             const Icon = item.icon;

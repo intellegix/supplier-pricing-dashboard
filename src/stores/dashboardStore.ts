@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { TabId, CommodityData, SupplierData, EconomicIndicator, WeatherData, NewsArticle } from '../types';
 import { mockCommodities, mockSuppliers, mockEconomicIndicators, mockWeather, mockNews } from '../utils/mockData';
 import { fetchAllNews } from '../services/newsService';
+import { fetchWeatherData } from '../services/weatherService';
 
 interface DashboardStore {
   // State
@@ -13,6 +14,7 @@ interface DashboardStore {
   news: NewsArticle[];
   isLoading: boolean;
   isLoadingNews: boolean;
+  isLoadingWeather: boolean;
   lastUpdated: string | null;
   error: string | null;
 
@@ -20,6 +22,7 @@ interface DashboardStore {
   setActiveTab: (tab: TabId) => void;
   fetchData: () => Promise<void>;
   fetchNews: () => Promise<void>;
+  fetchWeather: () => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -33,6 +36,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   news: [],
   isLoading: true,
   isLoadingNews: false,
+  isLoadingWeather: false,
   lastUpdated: null,
   error: null,
 
@@ -51,15 +55,16 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         commodities: mockCommodities,
         suppliers: mockSuppliers,
         economicIndicators: mockEconomicIndicators,
-        weather: mockWeather,
+        weather: mockWeather, // Start with mock weather as fallback
         news: mockNews, // Start with mock news as fallback
         isLoading: false,
         lastUpdated: new Date().toISOString(),
         error: null
       });
 
-      // Fetch real news in the background
+      // Fetch real news and weather in the background
       get().fetchNews();
+      get().fetchWeather();
     } catch (error) {
       set({
         isLoading: false,
@@ -92,6 +97,30 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     }
   },
 
+  fetchWeather: async () => {
+    set({ isLoadingWeather: true });
+
+    try {
+      const realWeather = await fetchWeatherData();
+
+      if (realWeather.length > 0) {
+        set({
+          weather: realWeather,
+          isLoadingWeather: false
+        });
+        console.log(`Loaded real weather data for ${realWeather.length} locations from Open-Meteo`);
+      } else {
+        // Keep mock weather if fetch failed
+        console.log('Using mock weather data (Open-Meteo unavailable)');
+        set({ isLoadingWeather: false });
+      }
+    } catch (error) {
+      console.error('Error fetching real weather:', error);
+      set({ isLoadingWeather: false });
+      // Keep mock weather on error
+    }
+  },
+
   refreshData: async () => {
     set({ isLoading: true });
 
@@ -112,8 +141,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         lastUpdated: new Date().toISOString()
       });
 
-      // Also refresh news
+      // Also refresh news and weather
       get().fetchNews();
+      get().fetchWeather();
     } catch (error) {
       set({
         isLoading: false,

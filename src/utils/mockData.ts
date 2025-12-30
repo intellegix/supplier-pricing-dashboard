@@ -582,6 +582,29 @@ export const mockEconomicIndicators: EconomicIndicator[] = [
   }
 ];
 
+// Generate 7-day forecast data
+const generateForecast = (baseTemp: number) => {
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const conditions = ['Sunny', 'Partly Cloudy', 'Clear', 'Cloudy'];
+  const forecast = [];
+  const today = new Date();
+
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() + i);
+    const variation = Math.floor(Math.random() * 10) - 5;
+    forecast.push({
+      date: date.toISOString().split('T')[0],
+      dayName: i === 0 ? 'Today' : days[date.getDay()],
+      high: baseTemp + variation + 5,
+      low: baseTemp + variation - 8,
+      condition: conditions[Math.floor(Math.random() * conditions.length)],
+      precipitationProbability: Math.floor(Math.random() * 30)
+    });
+  }
+  return forecast;
+};
+
 export const mockWeather: WeatherData[] = [
   {
     location: 'San Diego',
@@ -592,18 +615,20 @@ export const mockWeather: WeatherData[] = [
     precipitationProbability: 5,
     time: new Date().toISOString(),
     condition: 'Partly Cloudy',
-    icon: 'partly-cloudy'
+    icon: 'partly-cloudy',
+    forecast: generateForecast(68)
   },
   {
-    location: 'Santee',
-    temperature: 72,
-    windSpeed: 5,
-    weatherCode: 0,
-    humidity: 55,
-    precipitationProbability: 0,
+    location: 'Ventura',
+    temperature: 64,
+    windSpeed: 10,
+    weatherCode: 1,
+    humidity: 68,
+    precipitationProbability: 15,
     time: new Date().toISOString(),
-    condition: 'Clear',
-    icon: 'clear'
+    condition: 'Partly Cloudy',
+    icon: 'partly-cloudy',
+    forecast: generateForecast(64)
   },
   {
     location: 'El Cajon',
@@ -614,7 +639,8 @@ export const mockWeather: WeatherData[] = [
     precipitationProbability: 0,
     time: new Date().toISOString(),
     condition: 'Sunny',
-    icon: 'sunny'
+    icon: 'sunny',
+    forecast: generateForecast(74)
   },
   {
     location: 'Chula Vista',
@@ -625,7 +651,20 @@ export const mockWeather: WeatherData[] = [
     precipitationProbability: 10,
     time: new Date().toISOString(),
     condition: 'Cloudy',
-    icon: 'cloudy'
+    icon: 'cloudy',
+    forecast: generateForecast(66)
+  },
+  {
+    location: 'Santee',
+    temperature: 72,
+    windSpeed: 5,
+    weatherCode: 0,
+    humidity: 55,
+    precipitationProbability: 0,
+    time: new Date().toISOString(),
+    condition: 'Clear',
+    icon: 'clear',
+    forecast: generateForecast(72)
   }
 ];
 

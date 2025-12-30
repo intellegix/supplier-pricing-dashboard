@@ -29,9 +29,10 @@ export function PriceChart({
   const isUp = lastPrice >= firstPrice;
   const chartColor = isUp ? '#00ff88' : '#ff3366';
 
-  // Format data for display (show fewer labels)
+  // Format data for display (show fewer labels on axis, but keep full date for tooltip)
   const formattedData = data.map((d, i) => ({
     ...d,
+    fullDate: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
     displayDate: i % 15 === 0 ? new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
   }));
 
@@ -51,7 +52,8 @@ export function PriceChart({
         </div>
       </div>
 
-      <div style={{ height }}>
+      {/* Prevent touch scrolling on chart area */}
+      <div style={{ height, touchAction: 'none' }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={formattedData}>
             <defs>
@@ -91,7 +93,12 @@ export function PriceChart({
               labelStyle={{ color: '#00d4ff', fontFamily: 'JetBrains Mono', fontSize: 11 }}
               itemStyle={{ color: '#e4e8f0', fontFamily: 'JetBrains Mono', fontSize: 11 }}
               formatter={(value) => [`$${(value as number).toLocaleString()}`, 'Price']}
-              labelFormatter={(label) => label || ''}
+              labelFormatter={(_label, payload) => {
+                if (payload && payload.length > 0) {
+                  return payload[0]?.payload?.fullDate || '';
+                }
+                return '';
+              }}
             />
             <Area
               type="monotone"

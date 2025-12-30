@@ -396,3 +396,77 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  html {
+    font-size: 13px;
+  }
+
+  .nav-tab {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .nav-tab span {
+    display: none;
+  }
+
+  .kpi-value {
+    font-size: 1.5rem;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .terminal-card {
+    border-radius: 0.375rem;
+  }
+
+  .chart-container {
+    padding: 0.75rem;
+  }
+}
+
+@media (max-width: 640px) {
+  html {
+    font-size: 12px;
+  }
+
+  .nav-tab {
+    padding: 0.5rem;
+    font-size: 0.7rem;
+  }
+
+  .kpi-value {
+    font-size: 1.25rem;
+  }
+
+  .data-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.5rem;
+    font-size: 0.7rem;
+    white-space: nowrap;
+  }
+}
+
+/* Mobile navigation scrolling */
+.mobile-nav-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.mobile-nav-scroll::-webkit-scrollbar {
+  display: none;
+}

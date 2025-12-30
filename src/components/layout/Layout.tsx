@@ -19,7 +19,7 @@ export function Layout({ children }: LayoutProps) {
       <div className="relative z-10">
         <Header />
         <Navigation />
-        <main className="max-w-[1920px] mx-auto px-6 py-6">
+        <main className="max-w-[1920px] mx-auto px-3 sm:px-6 py-4 sm:py-6">
           {children}
         </main>
       </div>

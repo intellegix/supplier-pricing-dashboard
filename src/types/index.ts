@@ -68,6 +68,15 @@ export interface EconomicIndicator {
   historicalData: { date: string; value: number }[];
 }
 
+export interface DailyForecast {
+  date: string;
+  dayName: string;
+  high: number;
+  low: number;
+  condition: string;
+  precipitationProbability: number;
+}
+
 export interface WeatherData {
   location: string;
   temperature: number;
@@ -78,6 +87,7 @@ export interface WeatherData {
   time: string;
   condition: string;
   icon: string;
+  forecast?: DailyForecast[];
 }
 
 export interface ChartDataPoint {
