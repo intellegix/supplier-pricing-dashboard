@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Package, Flame, Droplets, Zap, DollarSign, CircleDot } from 'lucide-react';
 import { useDashboardStore } from '../stores/dashboardStore';
@@ -7,6 +7,7 @@ import { RiskBadge } from '../components/dashboard/RiskBadge';
 import { TrendIndicator } from '../components/dashboard/TrendIndicator';
 import { DataTable } from '../components/tables/DataTable';
 import { PriceChart } from '../components/charts/PriceChart';
+import { CommodityDetailModal } from '../components/charts/CommodityDetailModal';
 import { formatCurrency, formatNumber } from '../utils/formatters';
 import type { CommodityData } from '../types';
 
@@ -23,6 +24,7 @@ const commodityIcons: Record<string, React.ReactNode> = {
 
 export function CommoditiesPage() {
   const { commodities } = useDashboardStore();
+  const [selectedCommodity, setSelectedCommodity] = useState<CommodityData | null>(null);
 
   const columns = useMemo<ColumnDef<CommodityData, unknown>[]>(
     () => [
@@ -94,20 +96,25 @@ export function CommoditiesPage() {
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
+      {/* KPI Cards - Clickable */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {topCommodities.map((commodity, index) => (
-          <KPICard
+          <div
             key={commodity.id}
-            title={commodity.name}
-            value={formatCurrency(commodity.currentPrice)}
-            change={commodity.dailyChangePercent}
-            changeLabel="Daily Change"
-            riskLevel={commodity.riskLevel}
-            icon={commodityIcons[commodity.id]}
-            sparklineData={commodity.historicalPrices.slice(-30).map((p) => ({ value: p.price }))}
-            delay={index * 0.1}
-          />
+            onClick={() => setSelectedCommodity(commodity)}
+            className="cursor-pointer transform transition-transform hover:scale-[1.02]"
+          >
+            <KPICard
+              title={commodity.name}
+              value={formatCurrency(commodity.currentPrice)}
+              change={commodity.dailyChangePercent}
+              changeLabel="Daily Change"
+              riskLevel={commodity.riskLevel}
+              icon={commodityIcons[commodity.id]}
+              sparklineData={commodity.historicalPrices.slice(-30).map((p) => ({ value: p.price }))}
+              delay={index * 0.1}
+            />
+          </div>
         ))}
       </div>
 
@@ -133,6 +140,14 @@ export function CommoditiesPage() {
         columns={columns}
         searchPlaceholder="Search commodities..."
       />
+
+      {/* Commodity Detail Modal */}
+      {selectedCommodity && (
+        <CommodityDetailModal
+          commodity={selectedCommodity}
+          onClose={() => setSelectedCommodity(null)}
+        />
+      )}
     </div>
   );
 }
