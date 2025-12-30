@@ -8,12 +8,15 @@ import { WeatherPage } from './pages/WeatherPage';
 import { useDashboardStore } from './stores/dashboardStore';
 
 function App() {
-  const { activeTab, fetchData, isLoading } = useDashboardStore();
+  const { activeTab, fetchData, loadCachedData, isLoading } = useDashboardStore();
 
-  // Fetch data on mount
+  // Load cached data first, then fetch fresh data in background
   useEffect(() => {
+    // Try to load cached data immediately
+    loadCachedData();
+    // Then fetch fresh data (will show as refreshing if cache exists)
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, loadCachedData]);
 
   // Render active page
   const renderPage = () => {
