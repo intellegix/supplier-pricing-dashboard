@@ -19,9 +19,10 @@ interface PriceChartProps {
 export function PriceChart({
   data,
   title,
-  color = '#00d4ff',
+  color: _color = '#00d4ff',
   height = 250
 }: PriceChartProps) {
+  void _color; // Used for future customization
   // Calculate if trend is up or down
   const firstPrice = data[0]?.price || 0;
   const lastPrice = data[data.length - 1]?.price || 0;
@@ -89,7 +90,7 @@ export function PriceChart({
               }}
               labelStyle={{ color: '#00d4ff', fontFamily: 'JetBrains Mono', fontSize: 11 }}
               itemStyle={{ color: '#e4e8f0', fontFamily: 'JetBrains Mono', fontSize: 11 }}
-              formatter={(value: number) => [`$${value.toLocaleString()}`, 'Price']}
+              formatter={(value) => [`$${(value as number).toLocaleString()}`, 'Price']}
               labelFormatter={(label) => label || ''}
             />
             <Area

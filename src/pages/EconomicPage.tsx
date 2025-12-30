@@ -5,7 +5,7 @@ import { useDashboardStore } from '../stores/dashboardStore';
 import { KPICard } from '../components/dashboard/KPICard';
 import { TrendIndicator } from '../components/dashboard/TrendIndicator';
 import { DataTable } from '../components/tables/DataTable';
-import { formatNumber, formatPercent } from '../utils/formatters';
+import { formatNumber } from '../utils/formatters';
 import type { EconomicIndicator } from '../types';
 import { motion } from 'framer-motion';
 import {

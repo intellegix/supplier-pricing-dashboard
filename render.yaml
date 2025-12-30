@@ -1,11 +1,9 @@
 services:
   - type: web
     name: supplier-pricing-dashboard
-    runtime: static
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    pullRequestPreviewsEnabled: true
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: public, max-age=3600
+    runtime: node
+    buildCommand: npm install && npm run build && npm install -g serve
+    startCommand: serve -s dist -l 10000
+    envVars:
+      - key: NODE_VERSION
+        value: 20

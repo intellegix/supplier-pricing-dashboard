@@ -7,7 +7,7 @@ import { RiskBadge } from '../components/dashboard/RiskBadge';
 import { TrendIndicator } from '../components/dashboard/TrendIndicator';
 import { DataTable } from '../components/tables/DataTable';
 import { PriceChart } from '../components/charts/PriceChart';
-import { formatCurrency, formatNumber, formatPercent } from '../utils/formatters';
+import { formatCurrency, formatNumber } from '../utils/formatters';
 import type { CommodityData } from '../types';
 
 const commodityIcons: Record<string, React.ReactNode> = {

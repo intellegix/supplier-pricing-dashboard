@@ -22,8 +22,9 @@ export function DataTable<T>({
   data,
   columns,
   searchPlaceholder = 'Search...',
-  searchColumn
+  searchColumn: _searchColumn
 }: DataTableProps<T>) {
+  void _searchColumn; // Reserved for column-specific search
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
 
